@@ -1,9 +1,8 @@
 // ==UserScript==
-// @name         Ulepy — kalkulator opłacalności ulepszania (Margonem)
+// @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
 // @version      1.0.0
-// @description  Zbiera ceny z domu aukcyjnego, odsiewa anomalie i liczy, czy opłaca się kupić przedmiot i go ulepszyć.
-// @author       cvvel67
+// @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
 // @updateURL    https://raw.githubusercontent.com/cvvel67/margonem-ulepy/main/dist/margonem-ulepy.min.user.js
