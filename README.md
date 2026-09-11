@@ -8,10 +8,10 @@ własnego ulepszania sprzętu.
 ## Instalacja
 
 1. Zainstaluj rozszerzenie Tampermonkey (Chrome/Firefox/Edge).
-2. Otwórz Tampermonkey → "Utwórz nowy skrypt" → wklej całą zawartość
-   [`dist/margonem-ulepy.min.user.js`](dist/margonem-ulepy.min.user.js)
-   → zapisz (Ctrl+S). Skrypt aktualizuje się sam dzięki `@updateURL` w
-   nagłówku, wskazującemu na ten plik w tym repozytorium.
+2. Otwórz w przeglądarce
+   [ten link](https://raw.githubusercontent.com/cvvel67/margonem-ulepy/main/dist/margonem-ulepy.min.user.js)
+   — Tampermonkey sam pokaże ekran instalacji, wystarczy potwierdzić.
+   Skrypt aktualizuje się sam dzięki `@updateURL` w nagłówku.
 3. Wejdź na margonem.pl, zaloguj się do gry. Obok natywnego paska ikon w
    prawym górnym rogu ekranu pojawi się mały zielony przycisk **U** —
    to włącznik panelu dodatku. Można go swobodnie przeciągnąć w inne
@@ -114,25 +114,35 @@ anomalie).
 Okno aukcji dzieli wyniki na strony (~15 pozycji/stronę, potwierdzone
 na żywo) — dodatek kumuluje unikalne ID widziane na kolejnych stronach
 tego samego filtra i uznaje listę za "pełną" dopiero, gdy pokrycie
-dorówna licznikowi "Ilość aukcji: N" w oknie gry. Automatyczne
-doładowanie kolejnych stron bez udziału użytkownika **nie jest możliwe**
-(przeglądarka blokuje syntetyczne zdarzenia scroll/wheel) — dodatek
-trzyma listę podsuniętą blisko dołu, więc wystarczy nawet drobny ruch
-kółkiem myszy, żeby doładować kolejną partię. Zakładka **Zbieranie**
-pokazuje ten status.
+dorówna licznikowi "Ilość aukcji: N" w oknie gry. Kolejne strony
+doładujesz ręcznie (przewijając listę w grze — dodatek trzyma ją
+podsuniętą blisko dołu, więc wystarczy drobny ruch kółkiem) albo
+przyciskiem **Załaduj wszystkie strony** w zakładce **Zbieranie**.
+Wtedy dodatek prosi grę o kolejne strony dokładnie tej listy, którą
+masz otwartą — strona po stronie, z przerwą ~1 s, i zatrzymuje się
+przy zmianie filtra, zamknięciu okna albo braku odpowiedzi.
 
 **5. Wykluczenia.** Oferty za walutę premium (SŁ) i oferty wystawione
 wyłącznie na licytację (bez opcji "Kup teraz") są całkowicie pomijane —
 nie da się ich uczciwie porównać z ceną czysto złotową ani potraktować
-jako pewną cenę rynkową.
+jako pewną cenę rynkową. Cała zakładka **Inne** domu aukcyjnego
+(książki, konsumpcyjne, neutralne, talizmany, torby, leczące, waluty,
+teleporty) oraz strzały też nie są zbierane — to nie sprzęt do
+ulepszania.
 
-## Zero automatyzacji gry
+## Co dodatek robi w grze, a czego nie
 
-Dodatek wyłącznie **czyta** dane już widoczne w interfejsie gry (DOM,
-przechwycone odpowiedzi XHR/fetch) — nigdy nie klika, nie licytuje, nie
-kupuje i nie wysyła własnych zapytań do serwera gry. Jedyne generowane
-przez niego zdarzenia `.click()` dotyczą elementów, które sam stworzył
-(pobieranie eksportu CSV/JSON), nigdy elementów gry.
+Dodatek nie gra za Ciebie: nigdy nie klika elementów gry, nie licytuje,
+nie kupuje i nie wystawia przedmiotów. W tle wyłącznie **czyta** dane
+widoczne w interfejsie gry (DOM, przechwycone odpowiedzi XHR/fetch).
+
+Jedyny wyjątek to przycisk **Załaduj wszystkie strony**. Po jego
+kliknięciu dodatek wysyła przez własną funkcję gry (`_g`) to samo
+zapytanie o kolejną stronę listy aukcji, które gra wysyła sama przy
+przewijaniu. Różni się ono wyłącznie numerem strony. Bez kliknięcia nic
+nie jest wysyłane. Regulamin gry może formalnie zabraniać wysyłania
+zapytań przez skrypty, więc z tej funkcji korzystasz na własną
+odpowiedzialność.
 
 ## Struktura projektu
 

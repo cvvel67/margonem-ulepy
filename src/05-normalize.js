@@ -132,12 +132,14 @@ MU.normalize = (function () {
      * legalnym formacie ceny (liczby + opcjonalny sufiks k/m/mld). */
     const hasPremium = /S[LŁ]/i.test(s) || s.indexOf('+') >= 0;
     const first = s.split('+')[0].trim();
-    const m = /^([\d\s.,]+)\s*(mld|m|k)?/i.exec(first);
+    /* "g" to miliard - klient pokazuje np. "2g" dla 2000m (potwierdzone
+     * przez uzytkownika). Bez tego "2g" czytalo sie jako 2 zlota. */
+    const m = /^([\d\s.,]+)\s*(mld|g|m|k)?/i.exec(first);
     if (!m) return null;
     const num = toNum(m[1]);
     if (!isFinite(num)) return null;
     const suf = (m[2] || '').toLowerCase();
-    const mult = suf === 'mld' ? 1e9 : suf === 'm' ? 1e6 : suf === 'k' ? 1e3 : 1;
+    const mult = suf === 'mld' || suf === 'g' ? 1e9 : suf === 'm' ? 1e6 : suf === 'k' ? 1e3 : 1;
     return { gold: num * mult, hasPremium: hasPremium };
   }
 
@@ -156,15 +158,21 @@ MU.normalize = (function () {
     return found ? total : null;
   }
 
-  function detectCategory(row, stat, name, cfg) {
+  function detectCategory(row, stat, name, cfg, strictCl) {
     const cats = cfg.categories;
-    /* 1. Kod klasy przedmiotu, jesli uzytkownik przypisal go w ustawieniach. */
+    /* 1. Kod klasy przedmiotu (`data-cl` z DOM okna aukcji). */
     const clField = pickField(row, PAT.cl, function (v) { return isNumish(v) || isStr(v); });
     if (clField) {
       const cl = String(clField.value).toLowerCase();
       for (const c of cats) {
         if (c.cl && c.cl.length && c.cl.map(String).indexOf(cl) >= 0) return c.id;
       }
+      /* strictCl: `cl` pochodzi z pewnego zrodla (DOM), wiec kod spoza listy
+       * sprzetu to zakladka "Inne" gry (ksiazki, konsumpcyjne, neutralne,
+       * talizmany, torby, leczace, waluty, teleporty) albo strzaly. Nie
+       * zgadujemy wtedy kategorii z nazwy - "Talizman ..." trafilby przez
+       * slowo kluczowe do naszyjnikow. */
+      if (strictCl) return 'inne';
     }
     /* 2. Pole typu ze statystyk. */
     const st = stat && (stat.type || stat.typ);
@@ -268,6 +276,9 @@ MU.normalize = (function () {
                          : U.upgradeFromName(name);
     const baseName = U.normName(name);
     const category = detectCategory(row, stat, name, cfg);
+    /* Zakladka "Inne" (i wszystko, czego nie da sie rozpoznac jako sprzet)
+     * nie jest w ogole zbierana - patrz detectCategory. */
+    if (category === 'inne') return null;
     const bracket = MU.cfg.bracketOf(lvl, cfg.brackets);
 
     /* Stabilny identyfikator aukcji. Gdy klient nie poda id, sklejamy go
@@ -326,7 +337,10 @@ MU.normalize = (function () {
 
     const upgrade = U.upgradeFromName(row.name);
     const baseName = U.normName(row.name);
-    const category = detectCategory(row, {}, row.name, cfg);
+    /* `cl` z DOM jest pewny - kod spoza sprzetu to zakladka "Inne" gry,
+     * ktora nie jest w ogole zbierana (patrz detectCategory). */
+    const category = detectCategory(row, {}, row.name, cfg, true);
+    if (category === 'inne') return null;
     const lvl = isFinite(row.lvl) ? row.lvl : toNum(row.lvl);
     const bracket = MU.cfg.bracketOf(lvl, cfg.brackets);
     const endTs = isFinite(row.endSeconds) ? now + row.endSeconds * 1000 : null;

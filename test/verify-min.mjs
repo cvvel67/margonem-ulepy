@@ -85,9 +85,15 @@ s.test('formatowanie zlota dziala identycznie po minifikacji (k/m/mld)', () => {
 
 s.test('rzadkosc "zwykly" i "legenda" nadal wykluczone po minifikacji', () => {
   const NOW = Date.now();
-  assert(MU.normalize.normalizeExact({ id: '1', name: 'Zwykly kij', lvl: 10, itemType: 't-norm', buyout: 1000 }, { now: NOW }) === null);
-  assert(MU.normalize.normalizeExact({ id: '1', name: 'Legendarny kij', lvl: 10, itemType: 't-leg', buyout: 1000 }, { now: NOW }) === null);
-  assert(MU.normalize.normalizeExact({ id: '1', name: 'Niezwykly kij', lvl: 10, itemType: 't-uni', buyout: 1000 }, { now: NOW }) !== null);
+  assert(MU.normalize.normalizeExact({ id: '1', name: 'Zwykly kij', lvl: 10, cl: 'weapon', itemType: 't-norm', buyout: 1000 }, { now: NOW }) === null);
+  assert(MU.normalize.normalizeExact({ id: '1', name: 'Legendarny kij', lvl: 10, cl: 'weapon', itemType: 't-leg', buyout: 1000 }, { now: NOW }) === null);
+  assert(MU.normalize.normalizeExact({ id: '1', name: 'Niezwykly kij', lvl: 10, cl: 'weapon', itemType: 't-uni', buyout: 1000 }, { now: NOW }) !== null);
+});
+
+s.test('zakladka "Inne" wykluczona i sufiks "g" = miliard - identycznie po minifikacji', () => {
+  const NOW = Date.now();
+  assert(MU.normalize.normalizeExact({ id: '1', name: 'Talizman wiatru', lvl: 100, cl: '22', itemType: 't-uni', buyout: 1e6 }, { now: NOW }) === null);
+  assert(MU.normalize.parseGoldText('2g').gold === 2e9, '2g to 2 miliardy zlota');
 });
 
 s.test('poprawka SL (bez ASCII fallbacku) dziala identycznie po minifikacji', () => {
@@ -115,6 +121,36 @@ s.test('buildCoarseTable nadal zawsze zwraca pelna siatke po minifikacji', () =>
   const rows = MU.aggregate.buildCoarseTable(index, { group: 'bronie', rarity: 'unikat' });
   assert(rows.length === cfg.brackets.length);
   assert(rows.every((r) => r.empty === true));
+});
+
+s.test('zadanie kolejnej strony aukcji: podmieniany jest WYLACZNIE numer strony (format podsluchany na zywo)', () => {
+  const S = MU.sniffer;
+  const p1 = 'ah&cat=1&filter=||||||0|4|0|1|&sort=1|1';
+  assert(S.ahTaskPage(p1) === 1);
+  assert(S.ahTaskWithPage(p1, 2) === 'ah&cat=1&filter=||||||0|4|0|2|&sort=1|1',
+    'strona 2 musi byc identyczna z tym, co gra wyslala sama przy przewijaniu');
+  assert(S.ahTaskPage(S.ahTaskWithPage(p1, 37)) === 37);
+  assert(S.ahTaskScope(S.ahTaskWithPage(p1, 5)) === S.ahTaskScope(p1), 'ta sama lista na innej stronie = ten sam zakres');
+  assert(S.ahTaskScope('ah&cat=2&filter=||||||0|4|0|1|&sort=1|1') !== S.ahTaskScope(p1), 'inna kategoria = inny zakres');
+});
+
+s.test('nieznany format zadania -> null, czyli dodatek nic nie wysyla', () => {
+  const S = MU.sniffer;
+  for (const t of [null, '', 'buy&id=5', 'ah&cat=1', 'ah&cat=1&filter=a|b', 'ah&cat=1&filter=||||||0|4|0|x|&sort=1|1']) {
+    assert(S.ahTaskWithPage(t, 2) === null, 'dla ' + JSON.stringify(t));
+  }
+  const p1 = 'ah&cat=1&filter=||||||0|4|0|1|&sort=1|1';
+  assert(S.ahTaskWithPage(p1, 0) === null);
+  assert(S.ahTaskWithPage(p1, 1.5) === null);
+});
+
+s.test('loadAllPages bez otwartego okna aukcji niczego nie wysyla', () => {
+  let sent = 0;
+  sandbox._g = () => { sent++; };
+  MU.sniffer.loadAllPages();
+  assert(sent === 0, 'bez okna aukcji nie wolno wyslac zadnego zadania');
+  const p = MU.sniffer.getPager();
+  assert(p.running === false && p.status === 'error');
 });
 
 const bad = s.done();

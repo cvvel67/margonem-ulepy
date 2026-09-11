@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.0.0
+// @version      1.1.0
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.0.0' };
+const MU = { version: '1.1.0' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -41,7 +41,11 @@ MU.cfg = (function () {
    * niebieski (w obu listach: rarities i targetRarities). deepMerge dla
    * tablic podstawia zapisana wartosc w calosci, wiec bez bumpa stary
    * kolor zostalby na zawsze u kogos z juz zapisanym localStorage. */
-  const LS_KEY = 'MU_CFG_v8';
+  /* v9: bump po usunieciu "talizman" ze slow kluczowych naszyjnika
+   * (talizmany to zakladka "Inne" gry, calkowicie wykluczona - patrz
+   * MU.normalize). Lista kategorii zapisuje sie w localStorage w calosci,
+   * wiec bez bumpa stara lista slow kluczowych zostalaby u kazdego. */
+  const LS_KEY = 'MU_CFG_v9';
 
   /* Przedzialy poziomowe: pelna, rowna siatka co 10 lvl, 21-30 .. 291-300.
    * Przedmioty ponizej 21 lub powyzej 300 trafiaja do wspolnego "?" -
@@ -116,7 +120,7 @@ MU.cfg = (function () {
       'pierscien', 'pierścien', 'pierścień', 'sygnet',
       'obraczka', 'obrączka'] },
     { id: 'naszyjnik', label: 'Naszyjnik', group: 'bizuteria', cl: ['13'], kw: [
-      'naszyjnik', 'amulet', 'wisior', 'medalion', 'talizman', 'lancuch',
+      'naszyjnik', 'amulet', 'wisior', 'medalion', 'lancuch',
       'łańcuch'] },
     { id: 'inne', label: 'Inne', group: null, cl: [], kw: [] },
   ];
@@ -1201,12 +1205,14 @@ MU.normalize = (function () {
      * legalnym formacie ceny (liczby + opcjonalny sufiks k/m/mld). */
     const hasPremium = /S[LŁ]/i.test(s) || s.indexOf('+') >= 0;
     const first = s.split('+')[0].trim();
-    const m = /^([\d\s.,]+)\s*(mld|m|k)?/i.exec(first);
+    /* "g" to miliard - klient pokazuje np. "2g" dla 2000m (potwierdzone
+     * przez uzytkownika). Bez tego "2g" czytalo sie jako 2 zlota. */
+    const m = /^([\d\s.,]+)\s*(mld|g|m|k)?/i.exec(first);
     if (!m) return null;
     const num = toNum(m[1]);
     if (!isFinite(num)) return null;
     const suf = (m[2] || '').toLowerCase();
-    const mult = suf === 'mld' ? 1e9 : suf === 'm' ? 1e6 : suf === 'k' ? 1e3 : 1;
+    const mult = suf === 'mld' || suf === 'g' ? 1e9 : suf === 'm' ? 1e6 : suf === 'k' ? 1e3 : 1;
     return { gold: num * mult, hasPremium: hasPremium };
   }
 
@@ -1225,15 +1231,21 @@ MU.normalize = (function () {
     return found ? total : null;
   }
 
-  function detectCategory(row, stat, name, cfg) {
+  function detectCategory(row, stat, name, cfg, strictCl) {
     const cats = cfg.categories;
-    /* 1. Kod klasy przedmiotu, jesli uzytkownik przypisal go w ustawieniach. */
+    /* 1. Kod klasy przedmiotu (`data-cl` z DOM okna aukcji). */
     const clField = pickField(row, PAT.cl, function (v) { return isNumish(v) || isStr(v); });
     if (clField) {
       const cl = String(clField.value).toLowerCase();
       for (const c of cats) {
         if (c.cl && c.cl.length && c.cl.map(String).indexOf(cl) >= 0) return c.id;
       }
+      /* strictCl: `cl` pochodzi z pewnego zrodla (DOM), wiec kod spoza listy
+       * sprzetu to zakladka "Inne" gry (ksiazki, konsumpcyjne, neutralne,
+       * talizmany, torby, leczace, waluty, teleporty) albo strzaly. Nie
+       * zgadujemy wtedy kategorii z nazwy - "Talizman ..." trafilby przez
+       * slowo kluczowe do naszyjnikow. */
+      if (strictCl) return 'inne';
     }
     /* 2. Pole typu ze statystyk. */
     const st = stat && (stat.type || stat.typ);
@@ -1337,6 +1349,9 @@ MU.normalize = (function () {
                          : U.upgradeFromName(name);
     const baseName = U.normName(name);
     const category = detectCategory(row, stat, name, cfg);
+    /* Zakladka "Inne" (i wszystko, czego nie da sie rozpoznac jako sprzet)
+     * nie jest w ogole zbierana - patrz detectCategory. */
+    if (category === 'inne') return null;
     const bracket = MU.cfg.bracketOf(lvl, cfg.brackets);
 
     /* Stabilny identyfikator aukcji. Gdy klient nie poda id, sklejamy go
@@ -1395,7 +1410,10 @@ MU.normalize = (function () {
 
     const upgrade = U.upgradeFromName(row.name);
     const baseName = U.normName(row.name);
-    const category = detectCategory(row, {}, row.name, cfg);
+    /* `cl` z DOM jest pewny - kod spoza sprzetu to zakladka "Inne" gry,
+     * ktora nie jest w ogole zbierana (patrz detectCategory). */
+    const category = detectCategory(row, {}, row.name, cfg, true);
+    if (category === 'inne') return null;
     const lvl = isFinite(row.lvl) ? row.lvl : toNum(row.lvl);
     const bracket = MU.cfg.bracketOf(lvl, cfg.brackets);
     const endTs = isFinite(row.endSeconds) ? now + row.endSeconds * 1000 : null;
@@ -1465,8 +1483,11 @@ MU.normalize = (function () {
  *   3. Zrzut z DOM otwartego okna domu aukcyjnego - dziala nawet gdy
  *      dane przyjda kanalem, ktorego nie przechwycimy.
  *
- * Dodatek tylko CZYTA to, co klient i tak pobiera. Nie generuje wlasnego
- * ruchu do serwera gry i nie automatyzuje zadnych akcji w grze.
+ * W tle dodatek tylko CZYTA to, co klient i tak pobiera, i nie
+ * automatyzuje zadnych akcji w grze. Jedyny wyjatek to "Zaladuj wszystkie
+ * strony" (sekcja 4 nizej): po kliknieciu uzytkownika prosi gre o kolejne
+ * strony tej samej listy aukcji, dokladnie tym zadaniem, ktore gra wysyla
+ * sama przy przewijaniu.
  * ------------------------------------------------------------------ */
 MU.sniffer = (function () {
 
@@ -1755,7 +1776,12 @@ MU.sniffer = (function () {
    * rozroznienia dodatek nigdy nie zapisalby ani jednej obserwacji, bo
    * pojedyncza strona listy prawie zawsze jest niepelna. */
   function auctionTotalCount() {
-    const m = /Ilo[śs][ćc]\s+aukcji:\s*([\d\s]+)/i.exec(document.body.textContent || '');
+    /* Najpierw wlasny element licznika okna aukcji (klasa potwierdzona na
+     * zywo), dopiero potem tekst calej strony - np. czat moglby zawierac
+     * przypadkowe "Ilosc aukcji: 5". */
+    const label = document.querySelector('.auction-window .amount-of-auction');
+    const src = label ? label.textContent : (document.body && document.body.textContent) || '';
+    const m = /Ilo[śs][ćc]\s+aukcji:\s*([\d\s]+)/i.exec(src);
     if (!m) return NaN;
     return N.toNum(m[1].replace(/\s/g, ''));
   }
@@ -1885,8 +1911,12 @@ MU.sniffer = (function () {
     return true;
   }
 
-  /* Automatyczne doladowywanie kolejnych stron listy aukcji - ZBADANE I
-   * ODRZUCONE, zostaje tylko jako udokumentowany negatywny wynik.
+  /* Doladowywanie kolejnych stron przez SYNTETYCZNY SCROLL - zbadane i
+   * odrzucone, zostaje jako udokumentowany negatywny wynik. UWAGA: wniosek
+   * na koncu tego bloku ("pelnego zrzutu nie da sie osiagnac") byl zbyt
+   * szeroki - dotyczy tylko podrabiania zdarzen. Dzialajaca droga (to samo
+   * zadanie `_g`, ktore gra wysyla przy przewijaniu, tylko po kliknieciu
+   * uzytkownika) jest opisana w sekcji 4 nizej, patrz loadAllPages.
    *
    * Wczesniejsza wersja tego modulu twierdzila (na podstawie jednej,
    * niedostatecznie zweryfikowanej obserwacji), ze programowe ustawienie
@@ -2050,11 +2080,186 @@ MU.sniffer = (function () {
   }
   function stopGlobalWatch() { clearInterval(globalTimer); globalTimer = null; }
 
+  /* --- 4. "Zaladuj wszystkie strony" - TYLKO na klikniecie ---------- *
+   *
+   * Poprawka wczesniejszego wniosku (blok komentarza nad
+   * keepScrolledNearBottom): syntetycznego ZDARZENIA scrolla faktycznie
+   * nie da sie podrobic, ale nie jest to jedyna droga. Gra doladowuje
+   * kolejna strone, wolajac wlasna funkcje `_g` z zadaniem w postaci
+   * (podsluchane na zywo, wrzesien 2026, swiat Luvia):
+   *
+   *   ah&cat=1&filter=||||||0|4|0|1|&sort=1|1    <- pierwsza strona
+   *   ah&cat=1&filter=||||||0|4|0|2|&sort=1|1    <- po dojechaniu do dolu
+   *
+   * Czyli numer strony to 10. pole (indeks 9) w `filter=`, a odpowiedz
+   * trafia do wlasnych handlerow gry i dokleja kolejne ~15 wierszy do tej
+   * samej `.auction-table` (potwierdzone: 14 -> 29). Dodatek robi wiec
+   * dokladnie to, co gra przy recznym przewijaniu: bierze OSTATNIE
+   * zadanie `ah&...`, ktore gra sama wyslala, podmienia wylacznie numer
+   * strony i przekazuje je do tej samej `_g`. Nie buduje zapytan od zera,
+   * nie zna zadnych innych zadan (kupno/licytacja/wystawianie w ogole
+   * nie istnieja w tym kodzie) i nie odpala sie sam - tylko po wyraznym
+   * kliknieciu przycisku w zakladce Zbieranie.
+   *
+   * Ograniczenia, zeby ruch wygladal jak szybkie reczne przewijanie, a nie
+   * jak zalew zapytan: strony po kolei (kolejna dopiero, gdy poprzednia
+   * dolozyla wiersze), przerwa miedzy stronami, twardy limit stron, stop
+   * przy zmianie filtra/zamknieciu okna/braku odpowiedzi. */
+  const AH_PAGE_FIELD = 9;
+  const AH_PAGE_SIZE = 15;
+  const PAGER_DELAY_MS = 900;
+  const PAGER_RESPONSE_TIMEOUT_MS = 6000;
+  const PAGER_MAX_PAGES = 400;
+
+  let lastAhTask = null;
+  let gameTaskHooked = false;
+
+  /* Pasywne podpiecie pod `_g`: zapamietuje ostatnie zadanie aukcji i ZAWSZE
+   * oddaje wywolanie oryginalowi bez zmian. `_g` pojawia sie dopiero po
+   * zaladowaniu klienta, a dodatek startuje na document-start - stad
+   * ponawianie co sekunde, az funkcja bedzie dostepna. */
+  function hookGameTask() {
+    if (gameTaskHooked) return true;
+    const orig = window._g;
+    if (typeof orig !== 'function') return false;
+    gameTaskHooked = true;
+    window._g = function (task) {
+      try { if (typeof task === 'string' && task.indexOf('ah&') === 0) lastAhTask = task; } catch (e) {}
+      return orig.apply(this, arguments);
+    };
+    return true;
+  }
+  function startGameTaskHook() {
+    if (hookGameTask()) return;
+    const t = setInterval(function () { if (hookGameTask()) clearInterval(t); }, 1000);
+  }
+
+  /* Czyste funkcje na zadaniu `ah&...` (testowane w test/verify-min.mjs).
+   * Kazdy format inny niz potwierdzony na zywo -> null, a wtedy dodatek
+   * po prostu nic nie wysyla. */
+  function ahFilterFields(task) {
+    if (typeof task !== 'string' || task.indexOf('ah&') !== 0) return null;
+    const parts = task.split('&');
+    let i = -1;
+    for (let k = 0; k < parts.length; k++) if (parts[k].indexOf('filter=') === 0) { i = k; break; }
+    if (i < 0) return null;
+    const fields = parts[i].slice('filter='.length).split('|');
+    if (fields.length <= AH_PAGE_FIELD || !/^\d+$/.test(fields[AH_PAGE_FIELD])) return null;
+    return { parts: parts, index: i, fields: fields };
+  }
+  function ahTaskPage(task) {
+    const f = ahFilterFields(task);
+    return f ? parseInt(f.fields[AH_PAGE_FIELD], 10) : NaN;
+  }
+  function ahTaskWithPage(task, page) {
+    const f = ahFilterFields(task);
+    if (!f || !(page >= 1) || Math.floor(page) !== page) return null;
+    const fields = f.fields.slice();
+    fields[AH_PAGE_FIELD] = String(page);
+    const parts = f.parts.slice();
+    parts[f.index] = 'filter=' + fields.join('|');
+    return parts.join('&');
+  }
+  /* Zadanie niezalezne od strony - do wykrycia, ze gracz zmienil filtr. */
+  function ahTaskScope(task) { return ahTaskWithPage(task, 1); }
+
+  function auctionRowCount() {
+    const table = document.querySelector('.auction-table');
+    if (!table) return -1;
+    return table.querySelectorAll('.item-slot-td .item').length;
+  }
+
+  const pager = { running: false, status: 'idle', message: '', page: 0, pages: 0, rows: 0, total: null };
+  const pagerListeners = [];
+  let pagerStopRequested = false;
+
+  function pagerUpdate(patch) {
+    Object.assign(pager, patch);
+    for (const fn of pagerListeners) {
+      try { fn(pager); } catch (e) { console.warn('[Ulepy] pager listener error', e); }
+    }
+  }
+  function onPager(fn) { pagerListeners.push(fn); }
+  function getPager() { return pager; }
+  function stopLoadAll() { pagerStopRequested = true; }
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function waitForMoreRows(before, timeoutMs) {
+    const until = Date.now() + timeoutMs;
+    return new Promise(function (resolve) {
+      (function poll() {
+        const n = auctionRowCount();
+        if (n > before || n < 0 || Date.now() >= until || pagerStopRequested) return resolve(n);
+        setTimeout(poll, 200);
+      })();
+    });
+  }
+
+  function loadAllPages() {
+    if (pager.running) return Promise.resolve(pager);
+    const total = auctionRowCount() > 0 && ahFilterFields(lastAhTask) ? auctionTotalCount() : NaN;
+    if (!isFinite(total)) {
+      pagerUpdate({ status: 'error', message: 'Otworz dom aukcyjny w grze i wybierz kategorie - ' +
+        'dodatek doladowuje dokladnie te liste, ktora gra wlasnie pokazuje.' });
+      return Promise.resolve(pager);
+    }
+    pagerStopRequested = false;
+    const scope = ahTaskScope(lastAhTask);
+    const pages = Math.min(PAGER_MAX_PAGES, Math.ceil(total / AH_PAGE_SIZE));
+    let page = ahTaskPage(lastAhTask);
+    pagerUpdate({ running: true, status: 'running', message: '', page: page, pages: pages,
+      rows: auctionRowCount(), total: total });
+
+    function finish(status, message) {
+      try { scrapeDom(); } catch (e) {}
+      pagerUpdate({ running: false, status: status, message: message, rows: Math.max(0, auctionRowCount()) });
+      return pager;
+    }
+
+    return (async function () {
+      let misses = 0;
+      for (;;) {
+        if (pagerStopRequested) return finish('stopped', 'Zatrzymano.');
+        const rows = auctionRowCount();
+        if (rows < 0) return finish('stopped', 'Okno aukcji zostalo zamkniete - zatrzymano.');
+        if (ahTaskScope(lastAhTask) !== scope) {
+          return finish('stopped', 'Filtr w grze sie zmienil - zatrzymano, zeby nie mieszac list.');
+        }
+        /* Gracz mogl w miedzyczasie sam przewinac - gra wtedy juz poprosila
+         * o dalsza strone i nie ma sensu pytac o nia drugi raz. */
+        page = Math.max(page, ahTaskPage(lastAhTask) || 0);
+        /* Licznik "Ilosc aukcji" gra aktualizuje z opoznieniem (na zywo:
+         * start z 2887 po poprzedniej liscie, w trakcie ladowania 505) -
+         * czytamy go wiec w kazdym obrocie, nie raz na starcie. */
+        const totalNow = auctionTotalCount();
+        if (isFinite(totalNow) && totalNow !== pager.total) {
+          pagerUpdate({ total: totalNow, pages: Math.min(PAGER_MAX_PAGES, Math.ceil(totalNow / AH_PAGE_SIZE)) });
+        }
+        if (rows >= pager.total || page >= pager.pages) return finish('done', 'Zaladowano cala liste.');
+
+        const next = ahTaskWithPage(lastAhTask, page + 1);
+        if (!next) return finish('error', 'Nieznany format zapytania gry - nic nie wyslano.');
+        window._g(next);
+        const after = await waitForMoreRows(rows, PAGER_RESPONSE_TIMEOUT_MS);
+        if (after > rows) {
+          misses = 0;
+          page++;
+        } else if (++misses >= 2) {
+          return finish('error', 'Gra nie dolozyla nowych ofert - zatrzymano.');
+        }
+        pagerUpdate({ page: page, rows: Math.max(0, after) });
+        await sleep(PAGER_DELAY_MS);
+      }
+    })().catch(function (e) { return finish('error', 'Blad: ' + (e && e.message)); });
+  }
+
   function install() {
     if (installed) return;
     installed = true;
     hookXhr();
     hookFetch();
+    startGameTaskHook();
     startGlobalWatch(30000);
     startDomWatch(8000);
     startKeepScrolledNearBottom(1500);
@@ -2062,6 +2267,8 @@ MU.sniffer = (function () {
 
   return {
     install: install, onSnapshot: onSnapshot, diag: diag,
+    loadAllPages: loadAllPages, stopLoadAll: stopLoadAll, getPager: getPager, onPager: onPager,
+    ahTaskPage: ahTaskPage, ahTaskWithPage: ahTaskWithPage, ahTaskScope: ahTaskScope,
     keepScrolledNearBottom: keepScrolledNearBottom,
     startKeepScrolledNearBottom: startKeepScrolledNearBottom,
     stopKeepScrolledNearBottom: stopKeepScrolledNearBottom,
@@ -3186,6 +3393,19 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     makeDraggable(panel, panel.querySelector('.draggable-window-element'), WINDOW_POS_KEY);
     installWheelScroll(panel.querySelector('#mu-body'));
 
+    /* Ikona i okno zawsze na ekranie - rowniez po zmianie rozmiaru okna
+     * przegladarki. Na zywo: ikona zamontowana przy szerokim oknie zostala
+     * na x=922 po zwezeniu okna do 337px i nie dalo sie jej kliknac. */
+    function keepOnScreen() {
+      [icon, panel].forEach(function (x) {
+        const c = clampPos(parseInt(x.style.left, 10) || 0, parseInt(x.style.top, 10) || 0);
+        x.style.left = c.left + 'px';
+        x.style.top = c.top + 'px';
+      });
+    }
+    keepOnScreen();
+    window.addEventListener('resize', U.debounce(keepOnScreen, 150));
+
     panel.querySelector('.close-button').addEventListener('click', toggle);
     panel.querySelectorAll('#mu-tabs .card').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -3230,6 +3450,12 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     if (panel && panel.classList.contains('mu-open') && activeTab === 'przedmioty') render(true);
   }, 400);
   MU.sniffer.onLiveSnapshot(renderLiveDebounced);
+
+  /* Postep "Zaladuj wszystkie strony" (i zamiana przycisku na Zatrzymaj). */
+  const renderPagerDebounced = U.debounce(function () {
+    if (panel && panel.classList.contains('mu-open') && activeTab === 'zbieranie') render(true);
+  }, 200);
+  MU.sniffer.onPager(renderPagerDebounced);
 
   /* bodyOnly=true: wywolane w tle (nowe dane), NIE przez akcje uzytkownika -
    * pomija przebudowe paska filtrow (renderBar), zeby nie wycinac w polu
@@ -3648,18 +3874,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
       (d.hits === 0 ? '<div class="mu-warn">Dodatek nie zobaczyl jeszcze zadnych danych ' +
         'aukcyjnych. Otworz dom aukcyjny w grze i przewin liste.</div>' : '') +
       (d.lastDom ? (function () {
-        /* Automatyczne doladowywanie kolejnych stron NIE jest mozliwe -
-         * zbadane i potwierdzone: przegladarka nigdy nie pozwala kodowi
-         * JS na stronie (wlacznie z tym dodatkiem) wygenerowac prawdziwe
-         * zdarzenie scrolla, a gra ignoruje syntetyczne. Kazde REczne
-         * przewiniecie listy przez Ciebie i tak zapisuje sie do proby od
-         * razu - to jedyny sposob zobaczenia wiecej niz pierwsza strona. */
         const status = d.lastDom.complete
           ? '<span class="mu-pos">Pobrano komplet listy dla tego filtra.</span>'
-          : '<span class="mu-mut">Dodatek nie moze w pelni doladowac kolejnych stron sam ' +
-            '(przegladarka na to nie pozwala) - ale trzyma liste podsunieta blisko dolu, ' +
-            'wiec nawet drobny ruch kolkiem myszy w oknie aukcji doladuje kolejna partie ' +
-            'ofert.</span>';
+          : '<span class="mu-mut">To jeszcze nie komplet - kliknij "Zaladuj wszystkie strony" ' +
+            'ponizej albo przewin liste w oknie aukcji.</span>';
         return '<div class="mu-note">' +
           'Biezaca strona: <b>' + d.lastDom.allCount + '</b> wierszy. Zobaczonych dotad: <b>' +
           d.lastDom.covered + '</b>' +
@@ -3668,6 +3886,31 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
           status +
           '</div>';
       })() : '') +
+      '<h4 class="mu-sec">Doladowanie listy</h4>' +
+      (function () {
+        /* Jedyne miejsce, z ktorego dodatek cokolwiek wysyla do gry - i to
+         * tylko po kliknieciu, patrz MU.sniffer.loadAllPages. */
+        const p = MU.sniffer.getPager();
+        const esc = function (s) {
+          return String(s).replace(/[&<>"]/g, function (ch) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+          });
+        };
+        let line = '';
+        if (p.running) {
+          line = '<span class="mu-mut">Laduje strone <b>' + (p.page + 1) + '</b> z <b>' + p.pages +
+            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert.</span>';
+        } else if (p.message) {
+          line = '<span class="' + (p.status === 'done' ? 'mu-pos' : 'mu-mut') + '">' +
+            esc(p.message) + '</span>';
+        }
+        return '<p class="mu-note">Prosi gre o kolejne strony dokladnie tej listy, ktora masz ' +
+          'otwarta w oknie aukcji - tak samo jak przy przewijaniu, strona po stronie, z przerwa ' +
+          'ok. 1 s. Nic nie kupuje i nie licytuje. ' + line + '</p>' +
+          (p.running
+            ? '<button class="mu-btn" id="mu-load-stop">Zatrzymaj</button>'
+            : '<button class="mu-btn" id="mu-load-all">Zaladuj wszystkie strony</button>');
+      })() +
       '<h4 class="mu-sec">Dane</h4>' +
       '<button class="mu-btn" id="mu-exp">Eksport JSON</button> ' +
       '<button class="mu-btn" id="mu-imp">Import JSON</button> ' +
@@ -3675,6 +3918,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
       '<button class="mu-btn" id="mu-wipe">Wyczysc wszystko</button>' +
       '<input type="file" id="mu-file" accept="application/json" style="display:none">';
 
+    const loadAll = body.querySelector('#mu-load-all');
+    if (loadAll) loadAll.onclick = function () { MU.sniffer.loadAllPages(); };
+    const loadStop = body.querySelector('#mu-load-stop');
+    if (loadStop) loadStop.onclick = function () { MU.sniffer.stopLoadAll(); };
     body.querySelector('#mu-exp').onclick = function () {
       MU.store.exportAll().then(function (data) {
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });

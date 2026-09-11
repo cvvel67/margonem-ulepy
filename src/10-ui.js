@@ -458,6 +458,19 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     makeDraggable(panel, panel.querySelector('.draggable-window-element'), WINDOW_POS_KEY);
     installWheelScroll(panel.querySelector('#mu-body'));
 
+    /* Ikona i okno zawsze na ekranie - rowniez po zmianie rozmiaru okna
+     * przegladarki. Na zywo: ikona zamontowana przy szerokim oknie zostala
+     * na x=922 po zwezeniu okna do 337px i nie dalo sie jej kliknac. */
+    function keepOnScreen() {
+      [icon, panel].forEach(function (x) {
+        const c = clampPos(parseInt(x.style.left, 10) || 0, parseInt(x.style.top, 10) || 0);
+        x.style.left = c.left + 'px';
+        x.style.top = c.top + 'px';
+      });
+    }
+    keepOnScreen();
+    window.addEventListener('resize', U.debounce(keepOnScreen, 150));
+
     panel.querySelector('.close-button').addEventListener('click', toggle);
     panel.querySelectorAll('#mu-tabs .card').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -502,6 +515,12 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     if (panel && panel.classList.contains('mu-open') && activeTab === 'przedmioty') render(true);
   }, 400);
   MU.sniffer.onLiveSnapshot(renderLiveDebounced);
+
+  /* Postep "Zaladuj wszystkie strony" (i zamiana przycisku na Zatrzymaj). */
+  const renderPagerDebounced = U.debounce(function () {
+    if (panel && panel.classList.contains('mu-open') && activeTab === 'zbieranie') render(true);
+  }, 200);
+  MU.sniffer.onPager(renderPagerDebounced);
 
   /* bodyOnly=true: wywolane w tle (nowe dane), NIE przez akcje uzytkownika -
    * pomija przebudowe paska filtrow (renderBar), zeby nie wycinac w polu
@@ -920,18 +939,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
       (d.hits === 0 ? '<div class="mu-warn">Dodatek nie zobaczyl jeszcze zadnych danych ' +
         'aukcyjnych. Otworz dom aukcyjny w grze i przewin liste.</div>' : '') +
       (d.lastDom ? (function () {
-        /* Automatyczne doladowywanie kolejnych stron NIE jest mozliwe -
-         * zbadane i potwierdzone: przegladarka nigdy nie pozwala kodowi
-         * JS na stronie (wlacznie z tym dodatkiem) wygenerowac prawdziwe
-         * zdarzenie scrolla, a gra ignoruje syntetyczne. Kazde REczne
-         * przewiniecie listy przez Ciebie i tak zapisuje sie do proby od
-         * razu - to jedyny sposob zobaczenia wiecej niz pierwsza strona. */
         const status = d.lastDom.complete
           ? '<span class="mu-pos">Pobrano komplet listy dla tego filtra.</span>'
-          : '<span class="mu-mut">Dodatek nie moze w pelni doladowac kolejnych stron sam ' +
-            '(przegladarka na to nie pozwala) - ale trzyma liste podsunieta blisko dolu, ' +
-            'wiec nawet drobny ruch kolkiem myszy w oknie aukcji doladuje kolejna partie ' +
-            'ofert.</span>';
+          : '<span class="mu-mut">To jeszcze nie komplet - kliknij "Zaladuj wszystkie strony" ' +
+            'ponizej albo przewin liste w oknie aukcji.</span>';
         return '<div class="mu-note">' +
           'Biezaca strona: <b>' + d.lastDom.allCount + '</b> wierszy. Zobaczonych dotad: <b>' +
           d.lastDom.covered + '</b>' +
@@ -940,6 +951,31 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
           status +
           '</div>';
       })() : '') +
+      '<h4 class="mu-sec">Doladowanie listy</h4>' +
+      (function () {
+        /* Jedyne miejsce, z ktorego dodatek cokolwiek wysyla do gry - i to
+         * tylko po kliknieciu, patrz MU.sniffer.loadAllPages. */
+        const p = MU.sniffer.getPager();
+        const esc = function (s) {
+          return String(s).replace(/[&<>"]/g, function (ch) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+          });
+        };
+        let line = '';
+        if (p.running) {
+          line = '<span class="mu-mut">Laduje strone <b>' + (p.page + 1) + '</b> z <b>' + p.pages +
+            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert.</span>';
+        } else if (p.message) {
+          line = '<span class="' + (p.status === 'done' ? 'mu-pos' : 'mu-mut') + '">' +
+            esc(p.message) + '</span>';
+        }
+        return '<p class="mu-note">Prosi gre o kolejne strony dokladnie tej listy, ktora masz ' +
+          'otwarta w oknie aukcji - tak samo jak przy przewijaniu, strona po stronie, z przerwa ' +
+          'ok. 1 s. Nic nie kupuje i nie licytuje. ' + line + '</p>' +
+          (p.running
+            ? '<button class="mu-btn" id="mu-load-stop">Zatrzymaj</button>'
+            : '<button class="mu-btn" id="mu-load-all">Zaladuj wszystkie strony</button>');
+      })() +
       '<h4 class="mu-sec">Dane</h4>' +
       '<button class="mu-btn" id="mu-exp">Eksport JSON</button> ' +
       '<button class="mu-btn" id="mu-imp">Import JSON</button> ' +
@@ -947,6 +983,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
       '<button class="mu-btn" id="mu-wipe">Wyczysc wszystko</button>' +
       '<input type="file" id="mu-file" accept="application/json" style="display:none">';
 
+    const loadAll = body.querySelector('#mu-load-all');
+    if (loadAll) loadAll.onclick = function () { MU.sniffer.loadAllPages(); };
+    const loadStop = body.querySelector('#mu-load-stop');
+    if (loadStop) loadStop.onclick = function () { MU.sniffer.stopLoadAll(); };
     body.querySelector('#mu-exp').onclick = function () {
       MU.store.exportAll().then(function (data) {
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });

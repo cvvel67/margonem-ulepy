@@ -9,7 +9,11 @@ MU.cfg = (function () {
    * niebieski (w obu listach: rarities i targetRarities). deepMerge dla
    * tablic podstawia zapisana wartosc w calosci, wiec bez bumpa stary
    * kolor zostalby na zawsze u kogos z juz zapisanym localStorage. */
-  const LS_KEY = 'MU_CFG_v8';
+  /* v9: bump po usunieciu "talizman" ze slow kluczowych naszyjnika
+   * (talizmany to zakladka "Inne" gry, calkowicie wykluczona - patrz
+   * MU.normalize). Lista kategorii zapisuje sie w localStorage w calosci,
+   * wiec bez bumpa stara lista slow kluczowych zostalaby u kazdego. */
+  const LS_KEY = 'MU_CFG_v9';
 
   /* Przedzialy poziomowe: pelna, rowna siatka co 10 lvl, 21-30 .. 291-300.
    * Przedmioty ponizej 21 lub powyzej 300 trafiaja do wspolnego "?" -
@@ -84,7 +88,7 @@ MU.cfg = (function () {
       'pierscien', 'pierścien', 'pierścień', 'sygnet',
       'obraczka', 'obrączka'] },
     { id: 'naszyjnik', label: 'Naszyjnik', group: 'bizuteria', cl: ['13'], kw: [
-      'naszyjnik', 'amulet', 'wisior', 'medalion', 'talizman', 'lancuch',
+      'naszyjnik', 'amulet', 'wisior', 'medalion', 'lancuch',
       'łańcuch'] },
     { id: 'inne', label: 'Inne', group: null, cl: [], kw: [] },
   ];

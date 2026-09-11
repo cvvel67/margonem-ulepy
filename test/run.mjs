@@ -123,9 +123,14 @@ s.test('aukcje z waluta premium (SL) sa oznaczone i odrzucane', () => {
   assert(d.hasPremium === true, 'oferta czysto za SL musi byc oznaczona jako premium');
 });
 
-s.test('smieciowa etykieta ceny nie wywraca parsera (zwraca liczbe, filtr MAD zrobi reszte)', () => {
-  const g = MU.normalize.parseGoldText('1g');
-  assert(g && g.gold === 1, 'oczekiwano bezpiecznego sparsowania do 1: ' + JSON.stringify(g));
+s.test('sufiks "g" to miliard (klient pokazuje "2g" dla 2000m)', () => {
+  /* Wczesniej ten test zakladal, ze "1g" to smieciowa etykieta = 1 zlota -
+   * to utrwalalo blad: "g" to realny sufiks klienta (potwierdzone przez
+   * uzytkownika), "2g" = 2 000 000 000 zlota. */
+  near(MU.normalize.parseGoldText('1g').gold, 1e9, 1);
+  near(MU.normalize.parseGoldText('2g').gold, 2e9, 1);
+  near(MU.normalize.parseGoldText('1.5g').gold, 1.5e9, 1);
+  near(MU.normalize.parseGoldText('2000m').gold, 2e9, 1);
 });
 
 s.test('parsowanie pozostalego czasu aukcji: d/h/m/s', () => {
@@ -172,12 +177,13 @@ s.test('normalizeExact odrzuca rekord bez ceny', () => {
 
 s.test('rzadkosc "zwykly" jest calkowicie wykluczona (exact i heuristic)', () => {
   assert(MU.normalize.normalizeExact(
-    { id: '1', name: 'Zwykly kij', lvl: 10, itemType: 't-norm', buyout: 1000 }, { now: NOW }) === null);
+    { id: '1', name: 'Zwykly kij', lvl: 10, cl: 'weapon', itemType: 't-norm', buyout: 1000 }, { now: NOW }) === null);
   assert(MU.normalize.normalizeRow(
     { id: 1, name: 'Zwykly kij', lvl: 10, price: 1000, rarity: 'zwykly' }, { now: NOW }) === null);
-  /* kontrola: ten sam rekord z inna rzadkoscia MA przejsc. */
+  /* kontrola: ten sam rekord z inna rzadkoscia MA przejsc (cl: bron -
+   * bez rozpoznanej kategorii sprzetu i tak odpadlby jako "Inne"). */
   assert(MU.normalize.normalizeExact(
-    { id: '1', name: 'Niezwykly kij', lvl: 10, itemType: 't-uni', buyout: 1000 }, { now: NOW }) !== null);
+    { id: '1', name: 'Niezwykly kij', lvl: 10, cl: 'weapon', itemType: 't-uni', buyout: 1000 }, { now: NOW }) !== null);
 });
 
 s.test('rzadkosc "legenda" jest calkowicie wykluczona (exact i heuristic)', () => {
@@ -187,14 +193,31 @@ s.test('rzadkosc "legenda" jest calkowicie wykluczona (exact i heuristic)', () =
     { id: 1, name: 'Legendarny kij', lvl: 10, price: 1000, rarity: 'legenda' }, { now: NOW }) === null);
 });
 
+s.test('zakladka "Inne" (ksiazki, talizmany, torby, waluty...) jest calkowicie wykluczona', () => {
+  /* cl z DOM spoza listy sprzetu = zakladka Inne gry - odrzucone, nawet
+   * gdy nazwa pasuje do slowa kluczowego sprzetu (Talizman != naszyjnik). */
+  assert(MU.normalize.normalizeExact(
+    { id: '1', name: 'Talizman wiatru', lvl: 100, cl: '22', itemType: 't-uni', buyout: 1e6 }, { now: NOW }) === null);
+  assert(MU.normalize.normalizeExact(
+    { id: '2', name: 'Ksiega zaklec', lvl: 100, cl: '23', itemType: 't-her', buyout: 1e6 }, { now: NOW }) === null);
+  /* bez cl (sciezka heurystyczna) nierozpoznana kategoria to tez "Inne" */
+  /* (nie "Torba ..." - w sciezce bez cl "torba" zawiera slowo kluczowe
+   * "orb"; w glownej sciezce DOM decyduje cl, wiec tam to nie wystepuje) */
+  assert(MU.normalize.normalizeRow(
+    { id: 3, name: 'Zwoj teleportacji', lvl: 50, price: 1e6, rarity: 'unikat' }, { now: NOW }) === null);
+  /* sprzet dalej przechodzi */
+  assert(MU.normalize.normalizeExact(
+    { id: '4', name: 'Amulet wiatru', lvl: 100, cl: '13', itemType: 't-uni', buyout: 1e6 }, { now: NOW }) !== null);
+});
+
 s.test('normalizeExact odrzuca oferty WYLACZNIE na licytacje (bez Kup teraz)', () => {
   /* sciezka "exact" ma prawdziwe, odrebne pola buyout/bid z DOM - brak
    * buyout = przedmiot jest tylko licytowany, ma byc odrzucony w calosci,
    * NIE liczony po cenie stawki. */
   assert(MU.normalize.normalizeExact(
-    { id: '1', name: 'Cos', lvl: 10, itemType: 't-uni', bid: 500000 }, { now: NOW }) === null);
+    { id: '1', name: 'Cos', lvl: 10, cl: 'weapon', itemType: 't-uni', bid: 500000 }, { now: NOW }) === null);
   const o = MU.normalize.normalizeExact(
-    { id: '1', name: 'Cos', lvl: 10, itemType: 't-uni', bid: 500000, buyout: 900000 }, { now: NOW });
+    { id: '1', name: 'Cos', lvl: 10, cl: 'weapon', itemType: 't-uni', bid: 500000, buyout: 900000 }, { now: NOW });
   near(o.price, 900000, 1, 'przy obu polach nadal wygrywa buyout');
 });
 
