@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.1.0
+// @version      1.1.1
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.1.0' };
+const MU = { version: '1.1.1' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -45,7 +45,9 @@ MU.cfg = (function () {
    * (talizmany to zakladka "Inne" gry, calkowicie wykluczona - patrz
    * MU.normalize). Lista kategorii zapisuje sie w localStorage w calosci,
    * wiec bez bumpa stara lista slow kluczowych zostalaby u kazdego. */
-  const LS_KEY = 'MU_CFG_v9';
+  /* v10: strzaly (cl 29) dopisane do kategorii "bron" - ta sama przyczyna
+   * bumpa co wyzej (u kogos z v1.1.0 zostalaby lista bez strzal). */
+  const LS_KEY = 'MU_CFG_v10';
 
   /* Przedzialy poziomowe: pelna, rowna siatka co 10 lvl, 21-30 .. 291-300.
    * Przedmioty ponizej 21 lub powyzej 300 trafiaja do wspolnego "?" -
@@ -83,15 +85,17 @@ MU.cfg = (function () {
    * kosturach/rozdzkach, wiec to prawie na pewno Orb, magiczny
    * odpowiednik tarczy) i `data-cl="5"` (sztylety/pazury - Bron
    * pomocnicza, dual-wield). Osmy podtyp (`data-cl="29"`) to strzaly/
-   * koczan (amunicja), pominiety - to nie sprzet do ulepszania. */
+   * kolczan - LICZA SIE JAKO BRON (potwierdzone przez uzytkownika), wiec
+   * naleza do kategorii "bron", NIE do wykluczonej zakladki "Inne". */
   const defaultCategories = [
-    { id: 'bron', label: 'Bron', group: 'bronie', cl: ['weapon', '4', 'magic'], kw: [
+    { id: 'bron', label: 'Bron', group: 'bronie', cl: ['weapon', '4', 'magic', '29'], kw: [
       'miecz', 'topor', 'topór', 'mlot', 'młot', 'sztylet', 'kostur',
       'rozdzka', 'różdżka', 'luk', 'łuk', 'kusza',
       'wlocznia', 'włócznia', 'kosa', 'bulawa', 'buława',
       'szpada', 'pika', 'laska', 'berlo', 'berło', 'ostrze', 'katana',
       'glewia', 'halabarda', 'maczuga', 'noz', 'nóż', 'palka',
-      'pałka', 'cep', 'obuch'] },
+      'pałka', 'cep', 'obuch', 'strzaly', 'strzały', 'strzala', 'strzała',
+      'kolczan', 'kołczan'] },
     /* Orb (`cl:'7'`) i Bron pomocnicza (`cl:'5'`) to bron do drugiej
      * reki - kw ponizej to tylko awaryjny fallback, bo real nazwy
      * przedmiotow tych typow rzadko zawieraja te slowa wprost (dzieli
@@ -1242,7 +1246,8 @@ MU.normalize = (function () {
       }
       /* strictCl: `cl` pochodzi z pewnego zrodla (DOM), wiec kod spoza listy
        * sprzetu to zakladka "Inne" gry (ksiazki, konsumpcyjne, neutralne,
-       * talizmany, torby, leczace, waluty, teleporty) albo strzaly. Nie
+       * talizmany, torby, leczace, waluty, teleporty). Strzaly (cl 29) to
+       * bron, nie "Inne" - sa na liscie sprzetu w MU.cfg. Nie
        * zgadujemy wtedy kategorii z nazwy - "Talizman ..." trafilby przez
        * slowo kluczowe do naszyjnikow. */
       if (strictCl) return 'inne';

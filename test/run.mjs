@@ -210,6 +210,13 @@ s.test('zakladka "Inne" (ksiazki, talizmany, torby, waluty...) jest calkowicie w
     { id: '4', name: 'Amulet wiatru', lvl: 100, cl: '13', itemType: 't-uni', buyout: 1e6 }, { now: NOW }) !== null);
 });
 
+s.test('strzaly (cl 29) licza sie jako bron i sa zbierane', () => {
+  assert(MU.normalize.detectCategory({ cl: '29' }, {}, 'Strzaly ogniste', MU.cfg.get()) === 'bron');
+  const o = MU.normalize.normalizeExact(
+    { id: '5', name: 'Strzaly ogniste', lvl: 100, cl: '29', itemType: 't-uni', buyout: 1e6 }, { now: NOW });
+  assert(o && o.category === 'bron', 'strzaly maja przejsc jako bron, nie odpasc jako "Inne"');
+});
+
 s.test('normalizeExact odrzuca oferty WYLACZNIE na licytacje (bez Kup teraz)', () => {
   /* sciezka "exact" ma prawdziwe, odrebne pola buyout/bid z DOM - brak
    * buyout = przedmiot jest tylko licytowany, ma byc odrzucony w calosci,

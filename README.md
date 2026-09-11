@@ -127,8 +127,8 @@ wyłącznie na licytację (bez opcji "Kup teraz") są całkowicie pomijane —
 nie da się ich uczciwie porównać z ceną czysto złotową ani potraktować
 jako pewną cenę rynkową. Cała zakładka **Inne** domu aukcyjnego
 (książki, konsumpcyjne, neutralne, talizmany, torby, leczące, waluty,
-teleporty) oraz strzały też nie są zbierane — to nie sprzęt do
-ulepszania.
+teleporty) też nie jest zbierana — to nie sprzęt do ulepszania.
+Strzały liczą się jako **Broń** i są zbierane razem z bronią.
 
 ## Co dodatek robi w grze, a czego nie
 

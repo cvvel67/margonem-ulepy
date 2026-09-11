@@ -169,7 +169,8 @@ MU.normalize = (function () {
       }
       /* strictCl: `cl` pochodzi z pewnego zrodla (DOM), wiec kod spoza listy
        * sprzetu to zakladka "Inne" gry (ksiazki, konsumpcyjne, neutralne,
-       * talizmany, torby, leczace, waluty, teleporty) albo strzaly. Nie
+       * talizmany, torby, leczace, waluty, teleporty). Strzaly (cl 29) to
+       * bron, nie "Inne" - sa na liscie sprzetu w MU.cfg. Nie
        * zgadujemy wtedy kategorii z nazwy - "Talizman ..." trafilby przez
        * slowo kluczowe do naszyjnikow. */
       if (strictCl) return 'inne';
