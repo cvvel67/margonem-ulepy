@@ -332,6 +332,79 @@ MU.sniffer = (function () {
   const rowCache = new Map();
   const ROW_CACHE_MAX = 8000;
 
+  /* Jeden wiersz tabeli aukcji -> { aid, cl, obs } albo null, gdy to nie
+   * wiersz z przedmiotem. obs === null to oferta odrzucona (premium,
+   * zwykly, Inne...). Wydzielone z scrapeAuctionTable, zeby "Zaladuj
+   * wszystkie strony" moglo przetwarzac TYLKO nowe wiersze po kazdej
+   * stronie zamiast calej, rosnacej tabeli. */
+  function parseAuctionRow(tr, now) {
+    const itemDiv = tr.querySelector('.item-slot-td .item');
+    if (!itemDiv) return null;
+    const idM = /item-id-(\d+)/.exec(itemDiv.className);
+    const aid = idM ? idM[1] : null;
+
+    if (aid && rowCache.has(aid)) {
+      return { aid: aid, cl: itemDiv.getAttribute('data-cl'), obs: rowCache.get(aid) };
+    }
+
+    const nameTd = tr.querySelector('.item-name-td');
+    if (!nameTd) return null;
+    const name = nameTd.textContent.trim();
+    if (!name) return null;
+    const cl = itemDiv.getAttribute('data-cl');
+
+    const buyTd = tr.querySelector('.item-buy-now-td');
+    const featured = !!(buyTd && buyTd.classList.contains('is-featured'));
+    const buyLabel = buyTd && buyTd.querySelector('.auction-cost-label');
+    const buyParsed = buyLabel ? N.parseGoldText(buyLabel.textContent) : null;
+    if (featured || (buyParsed && buyParsed.hasPremium)) {
+      if (aid) rowCache.set(aid, null);
+      return { aid: aid, cl: cl, obs: null };
+    }
+
+    const bidInput = tr.querySelector('.item-bid-td input.input-cost');
+    const bidExact = bidInput ? N.toNum(bidInput.getAttribute('full-cost')) : NaN;
+    const lvlTd = tr.querySelector('.item-level-td');
+    const timeEl = tr.querySelector('.item-time-td .time-wrapper');
+
+    const rec = {
+      id: aid || undefined,
+      name: name,
+      lvl: lvlTd ? N.toNum(lvlTd.textContent) : undefined,
+      cl: cl || undefined,
+      itemType: itemDiv.getAttribute('data-item-type') || undefined,
+      buyout: buyParsed ? buyParsed.gold : undefined,
+      bid: isFinite(bidExact) ? bidExact : undefined,
+      endSeconds: timeEl ? N.parseRemainingToSeconds(timeEl.textContent) : undefined,
+    };
+    const o = N.normalizeExact(rec, { now: now });
+    if (aid) rowCache.set(aid, o || null);
+    return { aid: aid, cl: cl, obs: o || null };
+  }
+
+  /* Tylko wiersze od indeksu `from` - uzywane przez "Zaladuj wszystkie
+   * strony" po kazdej stronie, zamiast pelnego skanu rosnacej tabeli co 8 s
+   * (przy tysiacach wierszy taki skan blokowal gre). complete:false - z czesci
+   * listy nie wolno wnioskowac o sprzedazy; pelny skan idzie raz, na koncu. */
+  function scrapeNewRows(from) {
+    const table = document.querySelector('.auction-table');
+    if (!table) return 0;
+    const trs = table.rows || table.querySelectorAll('tr');
+    const now = Date.now();
+    const obs = [];
+    for (let i = Math.max(0, from); i < trs.length; i++) {
+      const r = parseAuctionRow(trs[i], now);
+      if (r && r.obs) obs.push(r.obs);
+    }
+    if (rowCache.size > ROW_CACHE_MAX) rowCache.clear();
+    if (obs.length) {
+      addToSession(obs);
+      emit(obs, { source: 'dom-exact', url: location.href, scope: 'dom-pager', path: '.auction-table',
+        score: 1, complete: false });
+    }
+    return obs.length;
+  }
+
   /* Odcisk aktywnego filtra. Gra nie zmienia URL przy zmianie kategorii/
    * zakresu cen/poziomu (caly interfejs dziala po WebSocket), wiec
    * `location.href` nie nadaje sie na klucz zakresu - zmiana filtra
@@ -353,57 +426,12 @@ MU.sniffer = (function () {
     const now = Date.now();
 
     for (const tr of trs) {
-      const itemDiv = tr.querySelector('.item-slot-td .item');
-      if (!itemDiv) continue;
-      const idM = /item-id-(\d+)/.exec(itemDiv.className);
-      const aid = idM ? idM[1] : null;
-
-      if (aid && rowCache.has(aid)) {
-        allCount++;
-        const clCached = itemDiv.getAttribute('data-cl');
-        if (clCached) clSeen.add(clCached);
-        allIds.push(aid);
-        const cachedObs = rowCache.get(aid);
-        if (cachedObs) obs.push(cachedObs);
-        continue;
-      }
-
-      const nameTd = tr.querySelector('.item-name-td');
-      if (!nameTd) continue;
-      const name = nameTd.textContent.trim();
-      if (!name) continue;
+      const r = parseAuctionRow(tr, now);
+      if (!r) continue;
       allCount++;
-      const cl = itemDiv.getAttribute('data-cl');
-      if (cl) clSeen.add(cl);
-      if (aid) allIds.push(aid);
-
-      const buyTd = tr.querySelector('.item-buy-now-td');
-      const featured = !!(buyTd && buyTd.classList.contains('is-featured'));
-      const buyLabel = buyTd && buyTd.querySelector('.auction-cost-label');
-      const buyParsed = buyLabel ? N.parseGoldText(buyLabel.textContent) : null;
-      if (featured || (buyParsed && buyParsed.hasPremium)) {
-        if (aid) rowCache.set(aid, null);
-        continue;
-      }
-
-      const bidInput = tr.querySelector('.item-bid-td input.input-cost');
-      const bidExact = bidInput ? N.toNum(bidInput.getAttribute('full-cost')) : NaN;
-      const lvlTd = tr.querySelector('.item-level-td');
-      const timeEl = tr.querySelector('.item-time-td .time-wrapper');
-
-      const rec = {
-        id: aid || undefined,
-        name: name,
-        lvl: lvlTd ? N.toNum(lvlTd.textContent) : undefined,
-        cl: cl || undefined,
-        itemType: itemDiv.getAttribute('data-item-type') || undefined,
-        buyout: buyParsed ? buyParsed.gold : undefined,
-        bid: isFinite(bidExact) ? bidExact : undefined,
-        endSeconds: timeEl ? N.parseRemainingToSeconds(timeEl.textContent) : undefined,
-      };
-      const o = N.normalizeExact(rec, { now: now });
-      if (aid) rowCache.set(aid, o || null);
-      if (o) obs.push(o);
+      if (r.cl) clSeen.add(r.cl);
+      if (r.aid) allIds.push(r.aid);
+      if (r.obs) obs.push(r.obs);
     }
     if (rowCache.size > ROW_CACHE_MAX) rowCache.clear();
     if (!allCount) return false;
@@ -643,6 +671,12 @@ MU.sniffer = (function () {
 
   let lastAhTask = null;
   let gameTaskHooked = false;
+  /* Ostatnie zadanie wyslane przez sam dodatek ("Zaladuj wszystkie strony") -
+   * zeby odroznic je od klikniec gracza. onAhTask powiadamia tylko o tych
+   * drugich (np. gracz wrocil do przerwanej listy -> UI pokazuje "Wznow"). */
+  let lastOwnAhTask = null;
+  const ahTaskListeners = [];
+  function onAhTask(fn) { ahTaskListeners.push(fn); }
 
   /* Pasywne podpiecie pod `_g`: zapamietuje ostatnie zadanie aukcji i ZAWSZE
    * oddaje wywolanie oryginalowi bez zmian. `_g` pojawia sie dopiero po
@@ -654,7 +688,14 @@ MU.sniffer = (function () {
     if (typeof orig !== 'function') return false;
     gameTaskHooked = true;
     window._g = function (task) {
-      try { if (typeof task === 'string' && task.indexOf('ah&') === 0) lastAhTask = task; } catch (e) {}
+      try {
+        if (typeof task === 'string' && task.indexOf('ah&') === 0) {
+          lastAhTask = task;
+          if (task !== lastOwnAhTask) {
+            for (const fn of ahTaskListeners) { try { fn(); } catch (e) {} }
+          }
+        }
+      } catch (e) {}
       return orig.apply(this, arguments);
     };
     return true;
@@ -699,6 +740,16 @@ MU.sniffer = (function () {
     return table.querySelectorAll('.item-slot-td .item').length;
   }
 
+  /* Szybki licznik wierszy (wszystkie <tr>, z naglowkiem) - tylko do
+   * wykrywania, ze gra dolozyla strone. table.rows to natywna kolekcja, bez
+   * przeszukiwania selektorem calej tabeli przy kazdym sprawdzeniu (przy
+   * tysiacach wierszy to kosztowalo). -1 = brak okna aukcji. */
+  function auctionRowCountFast() {
+    const table = document.querySelector('.auction-table');
+    if (!table) return -1;
+    return (table.rows || table.querySelectorAll('tr')).length;
+  }
+
   const pager = { running: false, status: 'idle', message: '', page: 0, pages: 0, rows: 0, total: null };
   const pagerListeners = [];
   let pagerStopRequested = false;
@@ -713,10 +764,25 @@ MU.sniffer = (function () {
   function getPager() { return pager; }
   function stopLoadAll() { pagerStopRequested = true; }
 
+  /* Wznawianie: po przerwaniu (zamkniecie okna, Zatrzymaj, zmiana filtra,
+   * brak odpowiedzi) zapamietujemy liste (zadanie bez numeru strony) i
+   * ostatnia zaladowana strone. Gdy gracz otworzy te sama liste, panel
+   * pokazuje "Wznow od strony X". Tylko w pamieci - do przeladowania gry. */
+  let resumeState = null;
+  function getResumeInfo() {
+    if (!resumeState) return null;
+    /* matches tylko przy OTWARTYM oknie aukcji z ta sama lista - przy
+     * zamknietym oknie przycisk "Wznow" i tak by nic nie zrobil (lokalny
+     * test: pokazywal sie, a klikniety tylko prosil o otwarcie okna). */
+    return { page: resumeState.page, pages: resumeState.pages, total: resumeState.total,
+      matches: auctionRowCountFast() >= 0 && !!lastAhTask && ahTaskScope(lastAhTask) === resumeState.scope };
+  }
+
   /* Czeka, az gra dolozy nowe wiersze do tabeli. MutationObserver reaguje
    * natychmiast po wyrenderowaniu odpowiedzi (bez opoznienia pollingu i bez
    * zadnych dodatkowych zapytan do serwera); rzadki polling zostaje jako
-   * zapas, gdyby gra przebudowala cale okno i obserwowany wezel zniknal. */
+   * zapas, gdyby gra przebudowala cale okno i obserwowany wezel zniknal.
+   * `before` i wynik to szybki licznik (auctionRowCountFast). */
   function waitForMoreRows(before, timeoutMs) {
     return new Promise(function (resolve) {
       let done = false, observer = null, poll = null, timer = null;
@@ -726,10 +792,10 @@ MU.sniffer = (function () {
         if (observer) observer.disconnect();
         clearInterval(poll);
         clearTimeout(timer);
-        resolve(auctionRowCount());
+        resolve(auctionRowCountFast());
       }
       function check() {
-        const n = auctionRowCount();
+        const n = auctionRowCountFast();
         if (n > before || n < 0 || pagerStopRequested) finish();
       }
       /* Tylko sama tabela i rodzic wierszy, childList BEZ subtree - reaguje
@@ -760,18 +826,21 @@ MU.sniffer = (function () {
     if (w) w.classList.toggle('mu-pager-running', !!hidden);
   }
 
-  function loadAllPages() {
+  function loadAllPages(opts) {
     if (pager.running) return Promise.resolve(pager);
     const total = auctionRowCount() > 0 && ahFilterFields(lastAhTask) ? auctionTotalCount() : NaN;
     if (!isFinite(total)) {
-      pagerUpdate({ status: 'error', message: 'Otworz dom aukcyjny w grze i wybierz kategorie - ' +
-        'dodatek doladowuje dokladnie te liste, ktora gra wlasnie pokazuje.' });
+      pagerUpdate({ status: 'error', message: 'Otwórz dom aukcyjny w grze i wybierz kategorię – ' +
+        'dodatek doładowuje dokładnie tę listę, którą gra właśnie pokazuje.' });
       return Promise.resolve(pager);
     }
     pagerStopRequested = false;
     const scope = ahTaskScope(lastAhTask);
     const pages = Math.min(PAGER_MAX_PAGES, Math.ceil(total / AH_PAGE_SIZE));
     let page = ahTaskPage(lastAhTask);
+    /* Wznowienie tej samej listy od miejsca przerwania (patrz resumeState). */
+    if (opts && opts.resume && resumeState && resumeState.scope === scope) page = Math.max(page, resumeState.page);
+    resumeState = null;
     let loadedPages = 0, loadedMs = 0;
     setGameListHidden(true);
     pagerUpdate({ running: true, status: 'running', message: '', page: page, pages: pages,
@@ -780,7 +849,10 @@ MU.sniffer = (function () {
     function finish(status, message) {
       try { scrapeDom(); } catch (e) {}
       setGameListHidden(false);
-      const avg = loadedPages ? ' Srednio ' + (loadedMs / loadedPages / 1000).toFixed(2) + ' s/strone.' : '';
+      /* Zapamietaj miejsce przerwania - chyba ze lista jest kompletna. */
+      resumeState = status === 'done' || !(page > 1) ? null
+        : { scope: scope, page: page, pages: pager.pages, total: pager.total };
+      const avg = loadedPages ? ' Średnio ' + (loadedMs / loadedPages / 1000).toFixed(2) + ' s/stronę.' : '';
       pagerUpdate({ running: false, status: status, message: message + avg, rows: Math.max(0, auctionRowCount()) });
       return pager;
     }
@@ -790,9 +862,9 @@ MU.sniffer = (function () {
       for (;;) {
         if (pagerStopRequested) return finish('stopped', 'Zatrzymano.');
         const rows = auctionRowCount();
-        if (rows < 0) return finish('stopped', 'Okno aukcji zostalo zamkniete - zatrzymano.');
+        if (rows < 0) return finish('stopped', 'Okno aukcji zostało zamknięte – zatrzymano. Otwórz tę samą listę, żeby wznowić.');
         if (ahTaskScope(lastAhTask) !== scope) {
-          return finish('stopped', 'Filtr w grze sie zmienil - zatrzymano, zeby nie mieszac list.');
+          return finish('stopped', 'Filtr w grze się zmienił – zatrzymano, żeby nie mieszać list.');
         }
         /* Gracz mogl w miedzyczasie sam przewinac - gra wtedy juz poprosila
          * o dalsza strone i nie ma sensu pytac o nia drugi raz. */
@@ -804,36 +876,41 @@ MU.sniffer = (function () {
         if (isFinite(totalNow) && totalNow !== pager.total) {
           pagerUpdate({ total: totalNow, pages: Math.min(PAGER_MAX_PAGES, Math.ceil(totalNow / AH_PAGE_SIZE)) });
         }
-        if (rows >= pager.total) return finish('done', 'Zaladowano cala liste.');
+        if (rows >= pager.total) return finish('done', 'Wczytano całą otwartą listę.');
         if (page >= pager.pages) {
           /* Wczesniej przy limicie stron komunikat mowil "cala lista" - na
            * liscie 35 tys. ofert byloby to nieprawda. */
           return Math.ceil(pager.total / AH_PAGE_SIZE) > PAGER_MAX_PAGES
-            ? finish('stopped', 'Osiagnieto limit ' + PAGER_MAX_PAGES + ' stron - lista moze byc niekompletna.')
-            : finish('done', 'Zaladowano wszystkie strony.');
+            ? finish('stopped', 'Osiągnięto limit ' + PAGER_MAX_PAGES + ' stron – lista może być niekompletna.')
+            : finish('done', 'Wczytano wszystkie strony otwartej listy.');
         }
 
         const next = ahTaskWithPage(lastAhTask, page + 1);
-        if (!next) return finish('error', 'Nieznany format zapytania gry - nic nie wyslano.');
+        if (!next) return finish('error', 'Nieznany format zapytania gry – nic nie wysłano.');
+        const fastBefore = auctionRowCountFast();
         const t0 = Date.now();
+        lastOwnAhTask = next;
         window._g(next);
-        const after = await waitForMoreRows(rows, PAGER_RESPONSE_TIMEOUT_MS);
+        const fastAfter = await waitForMoreRows(fastBefore, PAGER_RESPONSE_TIMEOUT_MS);
         const ms = Date.now() - t0;
-        if (after > rows) {
+        const added = Math.max(0, fastAfter - fastBefore);
+        if (added > 0) {
+          /* Tylko nowe wiersze - bez pelnego skanu rosnacej tabeli. */
+          scrapeNewRows(fastBefore);
           misses = 0;
           page++;
           loadedPages++;
           loadedMs += ms;
         } else if (++misses >= 2) {
-          return finish('error', 'Gra nie dolozyla nowych ofert - zatrzymano.');
+          return finish('error', 'Gra nie dołożyła nowych ofert – zatrzymano.');
         }
-        pagerUpdate({ page: page, rows: Math.max(0, after), lastMs: ms,
+        pagerUpdate({ page: page, rows: rows + added, lastMs: ms,
           avgMs: loadedPages ? Math.round(loadedMs / loadedPages) : null });
         /* Bez sztucznej przerwy - kolejna strona idzie od razu. Tempo wyznacza
          * kolejka zadan samej gry (_g odklada zadanie, gdy poprzednie jeszcze
          * trwa), a zapytania nigdy nie ida rownolegle. */
       }
-    })().catch(function (e) { return finish('error', 'Blad: ' + (e && e.message)); });
+    })().catch(function (e) { return finish('error', 'Błąd: ' + (e && e.message)); });
   }
 
   function install() {
@@ -843,13 +920,20 @@ MU.sniffer = (function () {
     hookFetch();
     startGameTaskHook();
     startGlobalWatch(30000);
-    startDomWatch(8000);
-    startKeepScrolledNearBottom(1500);
+    /* Pelny skan co 8 s i dosuwanie listy sa wstrzymane na czas "Zaladuj
+     * wszystkie strony" - ladowanie samo przetwarza nowe wiersze po kazdej
+     * stronie (scrapeNewRows), a pelny skan robi raz, na koncu. */
+    domTimer = setInterval(function () { if (!pager.running) scrapeDom(); }, 8000);
+    keepScrolledTimer = setInterval(function () {
+      if (pager.running) return;
+      try { keepScrolledNearBottom(); } catch (e) {}
+    }, 1500);
   }
 
   return {
     install: install, onSnapshot: onSnapshot, diag: diag,
     loadAllPages: loadAllPages, stopLoadAll: stopLoadAll, getPager: getPager, onPager: onPager,
+    getResumeInfo: getResumeInfo, onAhTask: onAhTask,
     ahTaskPage: ahTaskPage, ahTaskWithPage: ahTaskWithPage, ahTaskScope: ahTaskScope,
     keepScrolledNearBottom: keepScrolledNearBottom,
     startKeepScrolledNearBottom: startKeepScrolledNearBottom,

@@ -427,6 +427,37 @@ s.test('wartosc esencjalna (rozbicie): przyklady z poradnika', () => {
   near(MU.upgrade.essenceValue(85, 0), 19, 0, '18.5 -> 19');
 });
 
+s.test('kalkulator budzetu: zbroja lvl 244 legenda, 6g -> max ok. 2021/pkt (bez oplaty +5 i esencji)', () => {
+  const p = MU.upgrade.budgetPlan(244, 'legenda', 0, 6e9);
+  near(p.points, 2968000, 0.5);
+  assert(Math.floor(p.maxPerPoint) === 2021, 'max cena za punkt: ' + p.maxPerPoint);
+  assert(Math.floor(p.groupMaxPerPoint) === 2526, 'z bonusem +25% za grupe: ' + p.groupMaxPerPoint);
+  /* heroik heroikiem: +200% (x3), z tej samej grupy +225% (x3.25) */
+  const h = MU.upgrade.budgetPlan(120, 'heroik', 0, 5e8);
+  near(h.points, 210000, 0.5);
+  assert(Math.floor(h.sameRarityMaxPerPoint) === 7142, 'x3: ' + h.sameRarityMaxPerPoint);
+  assert(Math.floor(h.sameRarityGroupMaxPerPoint) === 7738, 'x3.25: ' + h.sameRarityGroupMaxPerPoint);
+  /* od +3: zostaja tylko stopnie 160% i 200% */
+  near(MU.upgrade.budgetPlan(244, 'legenda', 3, 6e9).points, 424000 * 3.6, 0.5);
+  assert(MU.upgrade.budgetPlan(244, 'legenda', 5, 6e9) === null, 'z +5 nie ma czego ulepszac');
+  assert(MU.upgrade.budgetPlan(0, 'legenda', 0, 6e9) === null);
+  assert(MU.upgrade.budgetPlan(244, 'legenda', 0, 0) === null);
+});
+
+s.test('podpowiedz "Max. cena": pulap = max cena za punkt x najwiecej punktow z jednego skladnika', () => {
+  /* cel legenda: najlepszy skladnik to heroik 300 z tej samej grupy = 4800 x 1.25 = 6000 pkt */
+  near(MU.upgrade.maxOfferPrice(1684, 'legenda', 300), 1684 * 6000, 0.5);
+  /* cel heroik: heroik z tej samej grupy i rzadkosci = 4800 x 3.25 = 15600 pkt */
+  near(MU.upgrade.maxOfferPrice(1684, 'heroik', 300), 1684 * 15600, 0.5);
+  /* cel unikat: nadal heroik (6000) bije unikat z bonusem rzadkosci (480 x 3.25 = 1560) */
+  near(MU.upgrade.maxOfferPrice(1684, 'unikat', 300), 1684 * 6000, 0.5);
+  assert(isNaN(MU.upgrade.maxOfferPrice(0, 'legenda', 300)));
+  /* osobne pulapy (przyklad uzytkownika: legenda 120, 5g -> 2380/pkt):
+   * unikat 300 z grupy = 480 x 1.25 = 600 pkt, heroik 300 z grupy = 6000 pkt */
+  near(MU.upgrade.maxOfferPrice(2380, 'legenda', 300, 'unikat'), 1428000, 0.5);
+  near(MU.upgrade.maxOfferPrice(2380, 'legenda', 300, 'heroik'), 14280000, 0.5);
+});
+
 s.test('koszt za punkt: tansza oferta przy tych samych punktach wygrywa', () => {
   const fodder = { lvl: 23, rarity: 'zwykly', group: 'pancerz', upgrade: 0, baseName: 'buty' };
   const tania = MU.upgrade.costPerPoint(10e6, fodder, null);

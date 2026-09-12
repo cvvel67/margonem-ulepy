@@ -192,7 +192,7 @@ MU.aggregate = (function () {
       trend: entry.stats.trendPerWeek,
       volatility: entry.stats.volatility,
       sellThrough: entry.liq ? entry.liq.sellThrough : NaN,
-      bonusApplied: !!target && upgrade === 0,
+      bonusApplied: points > MU.upgrade.basePoints(entry.lvl, rarity),
     };
   }
 
@@ -325,7 +325,7 @@ MU.aggregate = (function () {
         aid: s.aid, name: s.name, baseName: s.baseName, category: s.category,
         rarity: s.rarity, upgrade: s.upgrade, lvl: s.lvl, price: s.price,
         points: points, costPerPoint: s.price / points,
-        bonusApplied: !!target && s.upgrade === 0,
+        bonusApplied: points > MU.upgrade.basePoints(s.lvl, s.rarity),
       });
     }
     rows.sort(function (a, b) { return a.costPerPoint - b.costPerPoint; });

@@ -77,10 +77,10 @@ s.test('zaciemniony bundle laduje sie bez bledu i eksponuje window.MU z pelnym z
 const MU = sandbox.MU;
 if (MU) MU.cfg.load();
 
-s.test('formatowanie zlota dziala identycznie po minifikacji (k/m/mld)', () => {
+s.test('formatowanie zlota dziala identycznie po minifikacji (k/m/g)', () => {
   assert(MU.util.gold(25000) === '25k');
   assert(MU.util.gold(1000000) === '1m');
-  assert(MU.util.gold(2500000000) === '2.5mld');
+  assert(MU.util.gold(2500000000) === '2.5g', 'miliardy zapisywane jak w grze: "g", nie "mld"');
 });
 
 s.test('rzadkosc "zwykly" i "legenda" nadal wykluczone po minifikacji', () => {

@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Ulepy - symulator okna aukcji</title>
+<style>
+body{background:#2b2b2b;margin:0;font-family:sans-serif;color:#ccc}
+.sim-bar{position:fixed;left:8px;bottom:8px;display:flex;gap:6px;z-index:10;font-size:12px;align-items:center}
+.sim-bar button{background:#333;color:#ddd;border:1px solid #555;border-radius:4px;padding:5px 10px;cursor:pointer}
+/* Przyblizenie natywnych stylow okna gry (naglowek, zakladki) - tylko podglad. */
+.mu-window{border:2px solid #000}
+.mu-window .header-label-positioner{height:32px;background:linear-gradient(#3a3a3a,#262626);border-bottom:1px solid #000}
+.mu-window .header-label .text{color:#e8e8e8;font:bold 13px Arial,sans-serif;padding-top:8px}
+.mu-window .cards-header-wrapper.tabs-nav{display:flex;gap:2px;padding:6px 6px 0;background:#1b1b1b;border-bottom:1px solid #000}
+.mu-window .cards-header-wrapper .card{flex:1;text-align:center;padding:5px 4px;font:bold 11px Arial,sans-serif;color:#8a8a8a;
+  background:linear-gradient(#2b2b2b,#1e1e1e);border:1px solid #000;border-bottom:none;border-radius:4px 4px 0 0}
+.mu-window .cards-header-wrapper .card.active{color:#fff;background:linear-gradient(rgb(100,100,100),rgb(63,63,63))}
+.mu-window .card-notification,.mu-window .amount,.mu-window .close-button-corner-decor,.mu-window .c-window__bottom-bar{display:none}
+</style>
+</head>
+<body>
+<!-- Atrapa gry: okno aukcji, ktore na kazde zadanie `ah&...` doklada 15
+     wierszy (zbroje, unikaty) po opoznieniu `lat` ms i co sekunde przelicza
+     czas w kazdym wierszu, jak prawdziwa gra. Parametry: ?n=900&lat=120
+     (liczba ofert, opoznienie "serwera" w ms). Panel dodatku: ikona U. -->
+<div id="centerbox"></div>
+<div class="auction-window" style="position:fixed;right:8px;top:60px;width:260px;height:120px;overflow:hidden;background:#1e1e1e;border:1px solid #000;padding:6px">
+  <div style="font-size:11px;color:#888">Atrapa okna aukcji</div>
+  <div class="amount-of-auction">Ilość aukcji: 0</div>
+  <div class="scroll-pane" style="height:70px;overflow:hidden">
+    <table class="auction-table"><tbody><tr><th>Podgląd</th><th>Nazwa przedmiotu</th></tr></tbody></table>
+  </div>
+</div>
+<div class="sim-bar">
+  <button onclick="__simClose()">Zamknij okno aukcji</button>
+  <button onclick="__simReopen()">Otwórz ponownie</button>
+  <span id="sim-info"></span>
+</div>
+<script>
+(function () {
+  const P = new URLSearchParams(location.search);
+  const TOTAL = +(P.get('n') || 900), LAT = +(P.get('lat') || 120), PAGE = 15;
+  window.__sim = { total: TOTAL, served: 0, requested: [] };
+  let nextId = 1000000;
+  function rowHtml(i) {
+    const id = nextId++;
+    const lvl = 21 + (i * 7) % 280;
+    const price = 100 + (i * 37) % 9000;
+    return '<tr><td class="item-slot-td"><div class="item item-id-' + id + '" data-cl="8" data-item-type="t-uni"></div></td>' +
+      '<td class="item-name-td">Zbroja testowa ' + id + '</td><td class="item-level-td">' + lvl + '</td>' +
+      '<td class="item-time-td"><span class="time-wrapper">1h 2m</span></td><td class="item-bid-td"></td>' +
+      '<td class="item-buy-now-td"><span class="auction-cost-label">' + price + 'k</span></td></tr>';
+  }
+  function info() {
+    const t = document.querySelector('.auction-table');
+    document.getElementById('sim-info').textContent = t
+      ? 'Okno otwarte, wierszy: ' + t.querySelectorAll('.item-slot-td').length + ' / ' + TOTAL
+      : 'Okno aukcji zamknięte';
+  }
+  function servePage(page) {
+    const tbody = document.querySelector('.auction-table tbody');
+    if (!tbody) return;
+    const start = (page - 1) * PAGE;
+    let html = '';
+    for (let i = start; i < Math.min(TOTAL, start + PAGE); i++) html += rowHtml(i);
+    tbody.insertAdjacentHTML('beforeend', html);
+    document.querySelector('.amount-of-auction').textContent = 'Ilość aukcji: ' + TOTAL;
+    window.__sim.served++;
+    info();
+  }
+  window._g = function (task) {
+    const m = /filter=(?:[^|]*\|){9}(\d+)/.exec(task || '');
+    const page = m ? +m[1] : 1;
+    window.__sim.requested.push(page);
+    setTimeout(function () { servePage(page); }, LAT);
+  };
+  setInterval(function () {
+    const els = document.querySelectorAll('.auction-table .time-wrapper');
+    for (let i = 0; i < els.length; i++) els[i].textContent = (i % 2 ? '1h 2m' : '1h 1m');
+  }, 1000);
+  window.__simClose = function () {
+    const t = document.querySelector('.auction-table');
+    if (t) t.remove();
+    info();
+  };
+  window.__simReopen = function () {
+    const pane = document.querySelector('.scroll-pane');
+    pane.innerHTML = '<table class="auction-table"><tbody><tr><th>Podgląd</th><th>Nazwa przedmiotu</th></tr></tbody></table>';
+    window._g('ah&cat=8&filter=||||||0|4|0|1|&sort=1|1');
+  };
+  /* "Otwarcie listy" przez gre - po zaladowaniu dodatku, zeby jego podpiecie
+   * pod _g zobaczylo zadanie strony 1. */
+  window.addEventListener('load', function () { setTimeout(window.__simReopen, 800); });
+})();
+</script>
+<script src="margonem-ulepy.user.js"></script>
+</body>
+</html>

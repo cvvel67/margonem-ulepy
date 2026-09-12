@@ -5,16 +5,17 @@ MU.util = (function () {
 
   const DAY_MS = 86400000;
 
-  /* Formatowanie zlota w konwencji KLIENTA GRY: 1 000 000 -> "1m", 25 000 -> "25k"
-   * (potwierdzone podgladem realnego okna aukcji - gra uzywa k/m/mld,
-   * NIE potocznego "kk" z czatu). Spojnosc z tym, co gracz widzi na aukcji,
-   * jest wazniejsza niz slangowa konwencja. */
+  /* Formatowanie zlota w konwencji KLIENTA GRY: 1 000 000 -> "1m", 25 000 -> "25k",
+   * 2 000 000 000 -> "2g" (sufiks "g" potwierdzony przez uzytkownika - tak
+   * zapisuje gra i gracze; wczesniej dodatek pisal "mld"). NIE potoczne "kk"
+   * z czatu. Spojnosc z tym, co gracz widzi na aukcji, jest wazniejsza niz
+   * slangowa konwencja. Parser (MU.normalize.parseGoldText) przyjmuje oba. */
   function gold(n) {
     if (n === null || n === undefined || !isFinite(n)) return '-';
     const neg = n < 0;
     const a = Math.abs(n);
     let s;
-    if (a >= 1e9) s = round(a / 1e9, 2) + 'mld';
+    if (a >= 1e9) s = round(a / 1e9, 2) + 'g';
     else if (a >= 1e6) s = round(a / 1e6, 2) + 'm';
     else if (a >= 1e3) s = round(a / 1e3, 1) + 'k';
     else s = String(Math.round(a));

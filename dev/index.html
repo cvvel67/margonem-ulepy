@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Ulepy - podglad UI</title>
+<style>
+body{background:#2b2b2b;margin:0;height:100vh;font-family:sans-serif}
+/* Przyblizenie natywnych stylow okna gry (naglowek, zakladki) - tylko na
+   potrzeby podgladu; w grze te elementy biora wyglad z arkusza gry. */
+.mu-window{border:2px solid #000}
+.mu-window .header-label-positioner{height:32px;background:linear-gradient(#3a3a3a,#262626);border-bottom:1px solid #000}
+.mu-window .header-label .text{color:#e8e8e8;font:bold 13px Arial,sans-serif;padding-top:8px}
+.mu-window .cards-header-wrapper.tabs-nav{display:flex;gap:2px;padding:6px 6px 0;background:#1b1b1b;border-bottom:1px solid #000}
+.mu-window .cards-header-wrapper .card{flex:1;text-align:center;padding:5px 4px;font:bold 11px Arial,sans-serif;color:#8a8a8a;
+  background:linear-gradient(#2b2b2b,#1e1e1e);border:1px solid #000;border-bottom:none;border-radius:4px 4px 0 0}
+.mu-window .cards-header-wrapper .card.active{color:#fff;background:linear-gradient(rgb(100,100,100),rgb(63,63,63))}
+.mu-window .card-notification,.mu-window .amount,.mu-window .close-button-corner-decor,.mu-window .c-window__bottom-bar{display:none}
+</style>
+</head>
+<body>
+<!-- Atrapa klienta gry: looksLikeGameClient() akceptuje #centerbox, a pasek
+     ikon gry jest potrzebny tylko do domyslnej pozycji ikony dodatku.
+     Panel otwierasz ikona U w prawym gornym rogu. -->
+<div id="centerbox"></div>
+<div class="top-right main-buttons-container" style="position:fixed;top:8px;right:8px;width:160px;height:40px;background:#222"></div>
+<script src="margonem-ulepy.user.js"></script>
+<script>
+/* Tryb demo: ?demo=kalk | ?demo=zbieranie - sam otwiera panel z przykladem. */
+(function () {
+  const demo = new URLSearchParams(location.search).get('demo');
+  if (!demo) return;
+  function when(cond, fn, n) {
+    n = n || 0;
+    if (cond()) return fn();
+    if (n > 200) return;
+    setTimeout(function () { when(cond, fn, n + 1); }, 50);
+  }
+  when(function () { return window.MU && document.querySelector('.mu-window') && document.querySelector('#mu-tabs .card'); }, function () {
+    const p = document.querySelector('.mu-window');
+    if (!p.classList.contains('mu-open')) MU.ui.toggle();
+    setTimeout(function () {
+      p.style.left = '16px'; p.style.top = '16px';
+      const tab = function (id) { document.querySelector('#mu-tabs .card[data-tab="' + id + '"]').click(); };
+      const set = function (id, v) { const el = document.querySelector(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+      tab('kalkulator'); set('#mu-calc-lvl', '244'); set('#mu-calc-budget', '5g');
+      if (demo === 'zbieranie') tab('zbieranie');
+    }, 1000);
+  });
+})();
+</script>
+</body>
+</html>

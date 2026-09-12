@@ -114,7 +114,48 @@ MU.upgrade = (function () {
     return price / pts;
   }
 
+  /* Kalkulator budzetu: ile najwyzej mozna placic za punkt ulepszenia, zeby
+   * ulepszyc przedmiot z +fromStep do +5 w ramach budzetu. Liczone WYLACZNIE
+   * z punktow - bez oplaty za finalizacje +5 i bez esencji (decyzja
+   * uzytkownika). groupMaxPerPoint: skladniki z tej samej grupy co
+   * ulepszany przedmiot daja +25% punktow, wiec za ich punkt bazowy mozna
+   * zaplacic 1.25x wiecej. null = niepoprawne dane wejsciowe. */
+  function budgetPlan(lvl, rarity, fromStep, budget) {
+    const l = Number(lvl), from = Number(fromStep) || 0, b = Number(budget);
+    if (!(l > 0) || RARITY_E[rarity] === undefined || !(from >= 0 && from < 5) || !(b > 0)) return null;
+    const points = totalPointsCost(l, rarity, from, 5);
+    /* sameRarity*: skladnik tej samej rzadkosci co ulepszany przedmiot
+     * (+200%, np. heroik heroikiem), razem z grupa +225%. Ma sens tylko dla
+     * celu unikat/heroik (legend jako skladnikow dodatek nie zbiera). */
+    return { points: points, maxPerPoint: b / points, groupMaxPerPoint: b * 1.25 / points,
+      sameRarityMaxPerPoint: b * 3 / points, sameRarityGroupMaxPerPoint: b * 3.25 / points };
+  }
+
+  /* Najwyzsza cena oferty, jaka moze sie jeszcze oplacac przy danej max
+   * cenie za punkt - do wpisania w pole "Max. cena" w oknie aukcji, zeby gra
+   * w ogole nie wysylala drozszych ofert (mniej stron do pobrania). Liczona
+   * dla skladnika dajacego najwiecej punktow: najwyzszy poziom, ta sama
+   * grupa co cel (+25%) i - gdy cel to unikat/heroik - ta sama rzadkosc
+   * (+200%). Bonus "ten sam przedmiot" (+75%) pominiety: wymaga kupna
+   * identycznego przedmiotu co ulepszany. */
+  /* fodderRarity (opcjonalnie): pulap tylko dla skladnikow tej rzadkosci.
+   * W praktyce zalecany jest pulap UNIKATU - heroikow tak tanio nikt nie
+   * sprzedaje (uwaga uzytkownika), a pulap liczony z heroika kazalby grze
+   * wysylac wszystkie unikaty az do 10x wyzszej ceny. */
+  function maxOfferPrice(maxPerPoint, targetRarity, maxLvl, fodderRarity) {
+    if (!(maxPerPoint > 0)) return NaN;
+    const lvl = maxLvl || 300;
+    let best = 0;
+    for (const r of fodderRarity ? [fodderRarity] : ['unikat', 'heroik']) {
+      const pts = sacrificeYield({ lvl: lvl, rarity: r, group: 'g', upgrade: 0 },
+        { rarity: targetRarity, group: 'g' });
+      if (pts > best) best = pts;
+    }
+    return maxPerPoint * best;
+  }
+
   return {
+    budgetPlan: budgetPlan, maxOfferPrice: maxOfferPrice,
     RARITY_E: RARITY_E, RARITY_N: RARITY_N, STEP_PCT: STEP_PCT,
     formulaBase: formulaBase, basePoints: basePoints, sacrificeYield: sacrificeYield,
     stepPointsCost: stepPointsCost, totalPointsCost: totalPointsCost,

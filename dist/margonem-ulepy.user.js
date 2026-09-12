@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.1.3
+// @version      1.2.0
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.1.3' };
+const MU = { version: '1.2.0' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -47,7 +47,9 @@ MU.cfg = (function () {
    * wiec bez bumpa stara lista slow kluczowych zostalaby u kazdego. */
   /* v10: strzaly (cl 29) dopisane do kategorii "bron" - ta sama przyczyna
    * bumpa co wyzej (u kogos z v1.1.0 zostalaby lista bez strzal). */
-  const LS_KEY = 'MU_CFG_v10';
+  /* v11: polskie znaki w etykietach kategorii (Broń, Hełm...) - ta sama
+   * przyczyna bumpa co wyzej. */
+  const LS_KEY = 'MU_CFG_v11';
 
   /* Przedzialy poziomowe: pelna, rowna siatka co 10 lvl, 21-30 .. 291-300.
    * Przedmioty ponizej 21 lub powyzej 300 trafiaja do wspolnego "?" -
@@ -88,7 +90,7 @@ MU.cfg = (function () {
    * kolczan - LICZA SIE JAKO BRON (potwierdzone przez uzytkownika), wiec
    * naleza do kategorii "bron", NIE do wykluczonej zakladki "Inne". */
   const defaultCategories = [
-    { id: 'bron', label: 'Bron', group: 'bronie', cl: ['weapon', '4', 'magic', '29'], kw: [
+    { id: 'bron', label: 'Broń', group: 'bronie', cl: ['weapon', '4', 'magic', '29'], kw: [
       'miecz', 'topor', 'topór', 'mlot', 'młot', 'sztylet', 'kostur',
       'rozdzka', 'różdżka', 'luk', 'łuk', 'kusza',
       'wlocznia', 'włócznia', 'kosa', 'bulawa', 'buława',
@@ -102,25 +104,25 @@ MU.cfg = (function () {
      * je od bron glownej wylacznie slot/cl, nie nazwa). */
     { id: 'orb', label: 'Orb', group: 'bronie', cl: ['7'], kw: [
       'orb', 'kula magiczna', 'sfera'] },
-    { id: 'bron_pomocnicza', label: 'Bron pomocnicza', group: 'bronie', cl: ['5'], kw: [
+    { id: 'bron_pomocnicza', label: 'Broń pomocnicza', group: 'bronie', cl: ['5'], kw: [
       'bron pomocnicza', 'broń pomocnicza', 'sztylet pomocniczy'] },
     { id: 'pancerz', label: 'Pancerz', group: 'pancerz', cl: ['8'], kw: [
       'pancerz', 'zbroja', 'kolczuga', 'napiersnik', 'napierśnik',
       'kirys', 'szata', 'tunika', 'kaftan', 'plaszcz', 'płaszcz',
       'karacena', 'brygantyna', 'bluza', 'koszula', 'suknia', 'kubrak'] },
-    { id: 'helm', label: 'Helm', group: 'pancerz', cl: ['9'], kw: [
+    { id: 'helm', label: 'Hełm', group: 'pancerz', cl: ['9'], kw: [
       'helm', 'hełm', 'kaptur', 'czapka', 'korona', 'diadem',
       'przylbica', 'przyłbica', 'kapelusz', 'opaska', 'maska',
       'czepiec', 'misiurka', 'szyszak'] },
     { id: 'buty', label: 'Buty', group: 'pancerz', cl: ['10'], kw: [
       'buty', 'trzewiki', 'sandaly', 'sandały', 'cizmy', 'ciżmy',
       'obuwie', 'kalosze', 'sabaty', 'nagolenniki', 'onuce', 'botki'] },
-    { id: 'rekawice', label: 'Rekawice', group: 'pancerz', cl: ['11'], kw: [
+    { id: 'rekawice', label: 'Rękawice', group: 'pancerz', cl: ['11'], kw: [
       'rekawice', 'rękawice', 'rekawiczki', 'rękawiczki',
       'karwasze', 'nareczaki', 'naręczaki'] },
     { id: 'tarcza', label: 'Tarcza', group: 'pancerz', cl: ['14'], kw: [
       'tarcza', 'puklerz', 'pawez', 'pawęż'] },
-    { id: 'pierscien', label: 'Pierscien', group: 'bizuteria', cl: ['12'], kw: [
+    { id: 'pierscien', label: 'Pierścień', group: 'bizuteria', cl: ['12'], kw: [
       'pierscien', 'pierścien', 'pierścień', 'sygnet',
       'obraczka', 'obrączka'] },
     { id: 'naszyjnik', label: 'Naszyjnik', group: 'bizuteria', cl: ['13'], kw: [
@@ -272,16 +274,17 @@ MU.util = (function () {
 
   const DAY_MS = 86400000;
 
-  /* Formatowanie zlota w konwencji KLIENTA GRY: 1 000 000 -> "1m", 25 000 -> "25k"
-   * (potwierdzone podgladem realnego okna aukcji - gra uzywa k/m/mld,
-   * NIE potocznego "kk" z czatu). Spojnosc z tym, co gracz widzi na aukcji,
-   * jest wazniejsza niz slangowa konwencja. */
+  /* Formatowanie zlota w konwencji KLIENTA GRY: 1 000 000 -> "1m", 25 000 -> "25k",
+   * 2 000 000 000 -> "2g" (sufiks "g" potwierdzony przez uzytkownika - tak
+   * zapisuje gra i gracze; wczesniej dodatek pisal "mld"). NIE potoczne "kk"
+   * z czatu. Spojnosc z tym, co gracz widzi na aukcji, jest wazniejsza niz
+   * slangowa konwencja. Parser (MU.normalize.parseGoldText) przyjmuje oba. */
   function gold(n) {
     if (n === null || n === undefined || !isFinite(n)) return '-';
     const neg = n < 0;
     const a = Math.abs(n);
     let s;
-    if (a >= 1e9) s = round(a / 1e9, 2) + 'mld';
+    if (a >= 1e9) s = round(a / 1e9, 2) + 'g';
     else if (a >= 1e6) s = round(a / 1e6, 2) + 'm';
     else if (a >= 1e3) s = round(a / 1e3, 1) + 'k';
     else s = String(Math.round(a));
@@ -1809,6 +1812,79 @@ MU.sniffer = (function () {
   const rowCache = new Map();
   const ROW_CACHE_MAX = 8000;
 
+  /* Jeden wiersz tabeli aukcji -> { aid, cl, obs } albo null, gdy to nie
+   * wiersz z przedmiotem. obs === null to oferta odrzucona (premium,
+   * zwykly, Inne...). Wydzielone z scrapeAuctionTable, zeby "Zaladuj
+   * wszystkie strony" moglo przetwarzac TYLKO nowe wiersze po kazdej
+   * stronie zamiast calej, rosnacej tabeli. */
+  function parseAuctionRow(tr, now) {
+    const itemDiv = tr.querySelector('.item-slot-td .item');
+    if (!itemDiv) return null;
+    const idM = /item-id-(\d+)/.exec(itemDiv.className);
+    const aid = idM ? idM[1] : null;
+
+    if (aid && rowCache.has(aid)) {
+      return { aid: aid, cl: itemDiv.getAttribute('data-cl'), obs: rowCache.get(aid) };
+    }
+
+    const nameTd = tr.querySelector('.item-name-td');
+    if (!nameTd) return null;
+    const name = nameTd.textContent.trim();
+    if (!name) return null;
+    const cl = itemDiv.getAttribute('data-cl');
+
+    const buyTd = tr.querySelector('.item-buy-now-td');
+    const featured = !!(buyTd && buyTd.classList.contains('is-featured'));
+    const buyLabel = buyTd && buyTd.querySelector('.auction-cost-label');
+    const buyParsed = buyLabel ? N.parseGoldText(buyLabel.textContent) : null;
+    if (featured || (buyParsed && buyParsed.hasPremium)) {
+      if (aid) rowCache.set(aid, null);
+      return { aid: aid, cl: cl, obs: null };
+    }
+
+    const bidInput = tr.querySelector('.item-bid-td input.input-cost');
+    const bidExact = bidInput ? N.toNum(bidInput.getAttribute('full-cost')) : NaN;
+    const lvlTd = tr.querySelector('.item-level-td');
+    const timeEl = tr.querySelector('.item-time-td .time-wrapper');
+
+    const rec = {
+      id: aid || undefined,
+      name: name,
+      lvl: lvlTd ? N.toNum(lvlTd.textContent) : undefined,
+      cl: cl || undefined,
+      itemType: itemDiv.getAttribute('data-item-type') || undefined,
+      buyout: buyParsed ? buyParsed.gold : undefined,
+      bid: isFinite(bidExact) ? bidExact : undefined,
+      endSeconds: timeEl ? N.parseRemainingToSeconds(timeEl.textContent) : undefined,
+    };
+    const o = N.normalizeExact(rec, { now: now });
+    if (aid) rowCache.set(aid, o || null);
+    return { aid: aid, cl: cl, obs: o || null };
+  }
+
+  /* Tylko wiersze od indeksu `from` - uzywane przez "Zaladuj wszystkie
+   * strony" po kazdej stronie, zamiast pelnego skanu rosnacej tabeli co 8 s
+   * (przy tysiacach wierszy taki skan blokowal gre). complete:false - z czesci
+   * listy nie wolno wnioskowac o sprzedazy; pelny skan idzie raz, na koncu. */
+  function scrapeNewRows(from) {
+    const table = document.querySelector('.auction-table');
+    if (!table) return 0;
+    const trs = table.rows || table.querySelectorAll('tr');
+    const now = Date.now();
+    const obs = [];
+    for (let i = Math.max(0, from); i < trs.length; i++) {
+      const r = parseAuctionRow(trs[i], now);
+      if (r && r.obs) obs.push(r.obs);
+    }
+    if (rowCache.size > ROW_CACHE_MAX) rowCache.clear();
+    if (obs.length) {
+      addToSession(obs);
+      emit(obs, { source: 'dom-exact', url: location.href, scope: 'dom-pager', path: '.auction-table',
+        score: 1, complete: false });
+    }
+    return obs.length;
+  }
+
   /* Odcisk aktywnego filtra. Gra nie zmienia URL przy zmianie kategorii/
    * zakresu cen/poziomu (caly interfejs dziala po WebSocket), wiec
    * `location.href` nie nadaje sie na klucz zakresu - zmiana filtra
@@ -1830,57 +1906,12 @@ MU.sniffer = (function () {
     const now = Date.now();
 
     for (const tr of trs) {
-      const itemDiv = tr.querySelector('.item-slot-td .item');
-      if (!itemDiv) continue;
-      const idM = /item-id-(\d+)/.exec(itemDiv.className);
-      const aid = idM ? idM[1] : null;
-
-      if (aid && rowCache.has(aid)) {
-        allCount++;
-        const clCached = itemDiv.getAttribute('data-cl');
-        if (clCached) clSeen.add(clCached);
-        allIds.push(aid);
-        const cachedObs = rowCache.get(aid);
-        if (cachedObs) obs.push(cachedObs);
-        continue;
-      }
-
-      const nameTd = tr.querySelector('.item-name-td');
-      if (!nameTd) continue;
-      const name = nameTd.textContent.trim();
-      if (!name) continue;
+      const r = parseAuctionRow(tr, now);
+      if (!r) continue;
       allCount++;
-      const cl = itemDiv.getAttribute('data-cl');
-      if (cl) clSeen.add(cl);
-      if (aid) allIds.push(aid);
-
-      const buyTd = tr.querySelector('.item-buy-now-td');
-      const featured = !!(buyTd && buyTd.classList.contains('is-featured'));
-      const buyLabel = buyTd && buyTd.querySelector('.auction-cost-label');
-      const buyParsed = buyLabel ? N.parseGoldText(buyLabel.textContent) : null;
-      if (featured || (buyParsed && buyParsed.hasPremium)) {
-        if (aid) rowCache.set(aid, null);
-        continue;
-      }
-
-      const bidInput = tr.querySelector('.item-bid-td input.input-cost');
-      const bidExact = bidInput ? N.toNum(bidInput.getAttribute('full-cost')) : NaN;
-      const lvlTd = tr.querySelector('.item-level-td');
-      const timeEl = tr.querySelector('.item-time-td .time-wrapper');
-
-      const rec = {
-        id: aid || undefined,
-        name: name,
-        lvl: lvlTd ? N.toNum(lvlTd.textContent) : undefined,
-        cl: cl || undefined,
-        itemType: itemDiv.getAttribute('data-item-type') || undefined,
-        buyout: buyParsed ? buyParsed.gold : undefined,
-        bid: isFinite(bidExact) ? bidExact : undefined,
-        endSeconds: timeEl ? N.parseRemainingToSeconds(timeEl.textContent) : undefined,
-      };
-      const o = N.normalizeExact(rec, { now: now });
-      if (aid) rowCache.set(aid, o || null);
-      if (o) obs.push(o);
+      if (r.cl) clSeen.add(r.cl);
+      if (r.aid) allIds.push(r.aid);
+      if (r.obs) obs.push(r.obs);
     }
     if (rowCache.size > ROW_CACHE_MAX) rowCache.clear();
     if (!allCount) return false;
@@ -2120,6 +2151,12 @@ MU.sniffer = (function () {
 
   let lastAhTask = null;
   let gameTaskHooked = false;
+  /* Ostatnie zadanie wyslane przez sam dodatek ("Zaladuj wszystkie strony") -
+   * zeby odroznic je od klikniec gracza. onAhTask powiadamia tylko o tych
+   * drugich (np. gracz wrocil do przerwanej listy -> UI pokazuje "Wznow"). */
+  let lastOwnAhTask = null;
+  const ahTaskListeners = [];
+  function onAhTask(fn) { ahTaskListeners.push(fn); }
 
   /* Pasywne podpiecie pod `_g`: zapamietuje ostatnie zadanie aukcji i ZAWSZE
    * oddaje wywolanie oryginalowi bez zmian. `_g` pojawia sie dopiero po
@@ -2131,7 +2168,14 @@ MU.sniffer = (function () {
     if (typeof orig !== 'function') return false;
     gameTaskHooked = true;
     window._g = function (task) {
-      try { if (typeof task === 'string' && task.indexOf('ah&') === 0) lastAhTask = task; } catch (e) {}
+      try {
+        if (typeof task === 'string' && task.indexOf('ah&') === 0) {
+          lastAhTask = task;
+          if (task !== lastOwnAhTask) {
+            for (const fn of ahTaskListeners) { try { fn(); } catch (e) {} }
+          }
+        }
+      } catch (e) {}
       return orig.apply(this, arguments);
     };
     return true;
@@ -2176,6 +2220,16 @@ MU.sniffer = (function () {
     return table.querySelectorAll('.item-slot-td .item').length;
   }
 
+  /* Szybki licznik wierszy (wszystkie <tr>, z naglowkiem) - tylko do
+   * wykrywania, ze gra dolozyla strone. table.rows to natywna kolekcja, bez
+   * przeszukiwania selektorem calej tabeli przy kazdym sprawdzeniu (przy
+   * tysiacach wierszy to kosztowalo). -1 = brak okna aukcji. */
+  function auctionRowCountFast() {
+    const table = document.querySelector('.auction-table');
+    if (!table) return -1;
+    return (table.rows || table.querySelectorAll('tr')).length;
+  }
+
   const pager = { running: false, status: 'idle', message: '', page: 0, pages: 0, rows: 0, total: null };
   const pagerListeners = [];
   let pagerStopRequested = false;
@@ -2190,10 +2244,25 @@ MU.sniffer = (function () {
   function getPager() { return pager; }
   function stopLoadAll() { pagerStopRequested = true; }
 
+  /* Wznawianie: po przerwaniu (zamkniecie okna, Zatrzymaj, zmiana filtra,
+   * brak odpowiedzi) zapamietujemy liste (zadanie bez numeru strony) i
+   * ostatnia zaladowana strone. Gdy gracz otworzy te sama liste, panel
+   * pokazuje "Wznow od strony X". Tylko w pamieci - do przeladowania gry. */
+  let resumeState = null;
+  function getResumeInfo() {
+    if (!resumeState) return null;
+    /* matches tylko przy OTWARTYM oknie aukcji z ta sama lista - przy
+     * zamknietym oknie przycisk "Wznow" i tak by nic nie zrobil (lokalny
+     * test: pokazywal sie, a klikniety tylko prosil o otwarcie okna). */
+    return { page: resumeState.page, pages: resumeState.pages, total: resumeState.total,
+      matches: auctionRowCountFast() >= 0 && !!lastAhTask && ahTaskScope(lastAhTask) === resumeState.scope };
+  }
+
   /* Czeka, az gra dolozy nowe wiersze do tabeli. MutationObserver reaguje
    * natychmiast po wyrenderowaniu odpowiedzi (bez opoznienia pollingu i bez
    * zadnych dodatkowych zapytan do serwera); rzadki polling zostaje jako
-   * zapas, gdyby gra przebudowala cale okno i obserwowany wezel zniknal. */
+   * zapas, gdyby gra przebudowala cale okno i obserwowany wezel zniknal.
+   * `before` i wynik to szybki licznik (auctionRowCountFast). */
   function waitForMoreRows(before, timeoutMs) {
     return new Promise(function (resolve) {
       let done = false, observer = null, poll = null, timer = null;
@@ -2203,10 +2272,10 @@ MU.sniffer = (function () {
         if (observer) observer.disconnect();
         clearInterval(poll);
         clearTimeout(timer);
-        resolve(auctionRowCount());
+        resolve(auctionRowCountFast());
       }
       function check() {
-        const n = auctionRowCount();
+        const n = auctionRowCountFast();
         if (n > before || n < 0 || pagerStopRequested) finish();
       }
       /* Tylko sama tabela i rodzic wierszy, childList BEZ subtree - reaguje
@@ -2237,18 +2306,21 @@ MU.sniffer = (function () {
     if (w) w.classList.toggle('mu-pager-running', !!hidden);
   }
 
-  function loadAllPages() {
+  function loadAllPages(opts) {
     if (pager.running) return Promise.resolve(pager);
     const total = auctionRowCount() > 0 && ahFilterFields(lastAhTask) ? auctionTotalCount() : NaN;
     if (!isFinite(total)) {
-      pagerUpdate({ status: 'error', message: 'Otworz dom aukcyjny w grze i wybierz kategorie - ' +
-        'dodatek doladowuje dokladnie te liste, ktora gra wlasnie pokazuje.' });
+      pagerUpdate({ status: 'error', message: 'Otwórz dom aukcyjny w grze i wybierz kategorię – ' +
+        'dodatek doładowuje dokładnie tę listę, którą gra właśnie pokazuje.' });
       return Promise.resolve(pager);
     }
     pagerStopRequested = false;
     const scope = ahTaskScope(lastAhTask);
     const pages = Math.min(PAGER_MAX_PAGES, Math.ceil(total / AH_PAGE_SIZE));
     let page = ahTaskPage(lastAhTask);
+    /* Wznowienie tej samej listy od miejsca przerwania (patrz resumeState). */
+    if (opts && opts.resume && resumeState && resumeState.scope === scope) page = Math.max(page, resumeState.page);
+    resumeState = null;
     let loadedPages = 0, loadedMs = 0;
     setGameListHidden(true);
     pagerUpdate({ running: true, status: 'running', message: '', page: page, pages: pages,
@@ -2257,7 +2329,10 @@ MU.sniffer = (function () {
     function finish(status, message) {
       try { scrapeDom(); } catch (e) {}
       setGameListHidden(false);
-      const avg = loadedPages ? ' Srednio ' + (loadedMs / loadedPages / 1000).toFixed(2) + ' s/strone.' : '';
+      /* Zapamietaj miejsce przerwania - chyba ze lista jest kompletna. */
+      resumeState = status === 'done' || !(page > 1) ? null
+        : { scope: scope, page: page, pages: pager.pages, total: pager.total };
+      const avg = loadedPages ? ' Średnio ' + (loadedMs / loadedPages / 1000).toFixed(2) + ' s/stronę.' : '';
       pagerUpdate({ running: false, status: status, message: message + avg, rows: Math.max(0, auctionRowCount()) });
       return pager;
     }
@@ -2267,9 +2342,9 @@ MU.sniffer = (function () {
       for (;;) {
         if (pagerStopRequested) return finish('stopped', 'Zatrzymano.');
         const rows = auctionRowCount();
-        if (rows < 0) return finish('stopped', 'Okno aukcji zostalo zamkniete - zatrzymano.');
+        if (rows < 0) return finish('stopped', 'Okno aukcji zostało zamknięte – zatrzymano. Otwórz tę samą listę, żeby wznowić.');
         if (ahTaskScope(lastAhTask) !== scope) {
-          return finish('stopped', 'Filtr w grze sie zmienil - zatrzymano, zeby nie mieszac list.');
+          return finish('stopped', 'Filtr w grze się zmienił – zatrzymano, żeby nie mieszać list.');
         }
         /* Gracz mogl w miedzyczasie sam przewinac - gra wtedy juz poprosila
          * o dalsza strone i nie ma sensu pytac o nia drugi raz. */
@@ -2281,36 +2356,41 @@ MU.sniffer = (function () {
         if (isFinite(totalNow) && totalNow !== pager.total) {
           pagerUpdate({ total: totalNow, pages: Math.min(PAGER_MAX_PAGES, Math.ceil(totalNow / AH_PAGE_SIZE)) });
         }
-        if (rows >= pager.total) return finish('done', 'Zaladowano cala liste.');
+        if (rows >= pager.total) return finish('done', 'Wczytano całą otwartą listę.');
         if (page >= pager.pages) {
           /* Wczesniej przy limicie stron komunikat mowil "cala lista" - na
            * liscie 35 tys. ofert byloby to nieprawda. */
           return Math.ceil(pager.total / AH_PAGE_SIZE) > PAGER_MAX_PAGES
-            ? finish('stopped', 'Osiagnieto limit ' + PAGER_MAX_PAGES + ' stron - lista moze byc niekompletna.')
-            : finish('done', 'Zaladowano wszystkie strony.');
+            ? finish('stopped', 'Osiągnięto limit ' + PAGER_MAX_PAGES + ' stron – lista może być niekompletna.')
+            : finish('done', 'Wczytano wszystkie strony otwartej listy.');
         }
 
         const next = ahTaskWithPage(lastAhTask, page + 1);
-        if (!next) return finish('error', 'Nieznany format zapytania gry - nic nie wyslano.');
+        if (!next) return finish('error', 'Nieznany format zapytania gry – nic nie wysłano.');
+        const fastBefore = auctionRowCountFast();
         const t0 = Date.now();
+        lastOwnAhTask = next;
         window._g(next);
-        const after = await waitForMoreRows(rows, PAGER_RESPONSE_TIMEOUT_MS);
+        const fastAfter = await waitForMoreRows(fastBefore, PAGER_RESPONSE_TIMEOUT_MS);
         const ms = Date.now() - t0;
-        if (after > rows) {
+        const added = Math.max(0, fastAfter - fastBefore);
+        if (added > 0) {
+          /* Tylko nowe wiersze - bez pelnego skanu rosnacej tabeli. */
+          scrapeNewRows(fastBefore);
           misses = 0;
           page++;
           loadedPages++;
           loadedMs += ms;
         } else if (++misses >= 2) {
-          return finish('error', 'Gra nie dolozyla nowych ofert - zatrzymano.');
+          return finish('error', 'Gra nie dołożyła nowych ofert – zatrzymano.');
         }
-        pagerUpdate({ page: page, rows: Math.max(0, after), lastMs: ms,
+        pagerUpdate({ page: page, rows: rows + added, lastMs: ms,
           avgMs: loadedPages ? Math.round(loadedMs / loadedPages) : null });
         /* Bez sztucznej przerwy - kolejna strona idzie od razu. Tempo wyznacza
          * kolejka zadan samej gry (_g odklada zadanie, gdy poprzednie jeszcze
          * trwa), a zapytania nigdy nie ida rownolegle. */
       }
-    })().catch(function (e) { return finish('error', 'Blad: ' + (e && e.message)); });
+    })().catch(function (e) { return finish('error', 'Błąd: ' + (e && e.message)); });
   }
 
   function install() {
@@ -2320,13 +2400,20 @@ MU.sniffer = (function () {
     hookFetch();
     startGameTaskHook();
     startGlobalWatch(30000);
-    startDomWatch(8000);
-    startKeepScrolledNearBottom(1500);
+    /* Pelny skan co 8 s i dosuwanie listy sa wstrzymane na czas "Zaladuj
+     * wszystkie strony" - ladowanie samo przetwarza nowe wiersze po kazdej
+     * stronie (scrapeNewRows), a pelny skan robi raz, na koncu. */
+    domTimer = setInterval(function () { if (!pager.running) scrapeDom(); }, 8000);
+    keepScrolledTimer = setInterval(function () {
+      if (pager.running) return;
+      try { keepScrolledNearBottom(); } catch (e) {}
+    }, 1500);
   }
 
   return {
     install: install, onSnapshot: onSnapshot, diag: diag,
     loadAllPages: loadAllPages, stopLoadAll: stopLoadAll, getPager: getPager, onPager: onPager,
+    getResumeInfo: getResumeInfo, onAhTask: onAhTask,
     ahTaskPage: ahTaskPage, ahTaskWithPage: ahTaskWithPage, ahTaskScope: ahTaskScope,
     keepScrolledNearBottom: keepScrolledNearBottom,
     startKeepScrolledNearBottom: startKeepScrolledNearBottom,
@@ -2638,7 +2725,48 @@ MU.upgrade = (function () {
     return price / pts;
   }
 
+  /* Kalkulator budzetu: ile najwyzej mozna placic za punkt ulepszenia, zeby
+   * ulepszyc przedmiot z +fromStep do +5 w ramach budzetu. Liczone WYLACZNIE
+   * z punktow - bez oplaty za finalizacje +5 i bez esencji (decyzja
+   * uzytkownika). groupMaxPerPoint: skladniki z tej samej grupy co
+   * ulepszany przedmiot daja +25% punktow, wiec za ich punkt bazowy mozna
+   * zaplacic 1.25x wiecej. null = niepoprawne dane wejsciowe. */
+  function budgetPlan(lvl, rarity, fromStep, budget) {
+    const l = Number(lvl), from = Number(fromStep) || 0, b = Number(budget);
+    if (!(l > 0) || RARITY_E[rarity] === undefined || !(from >= 0 && from < 5) || !(b > 0)) return null;
+    const points = totalPointsCost(l, rarity, from, 5);
+    /* sameRarity*: skladnik tej samej rzadkosci co ulepszany przedmiot
+     * (+200%, np. heroik heroikiem), razem z grupa +225%. Ma sens tylko dla
+     * celu unikat/heroik (legend jako skladnikow dodatek nie zbiera). */
+    return { points: points, maxPerPoint: b / points, groupMaxPerPoint: b * 1.25 / points,
+      sameRarityMaxPerPoint: b * 3 / points, sameRarityGroupMaxPerPoint: b * 3.25 / points };
+  }
+
+  /* Najwyzsza cena oferty, jaka moze sie jeszcze oplacac przy danej max
+   * cenie za punkt - do wpisania w pole "Max. cena" w oknie aukcji, zeby gra
+   * w ogole nie wysylala drozszych ofert (mniej stron do pobrania). Liczona
+   * dla skladnika dajacego najwiecej punktow: najwyzszy poziom, ta sama
+   * grupa co cel (+25%) i - gdy cel to unikat/heroik - ta sama rzadkosc
+   * (+200%). Bonus "ten sam przedmiot" (+75%) pominiety: wymaga kupna
+   * identycznego przedmiotu co ulepszany. */
+  /* fodderRarity (opcjonalnie): pulap tylko dla skladnikow tej rzadkosci.
+   * W praktyce zalecany jest pulap UNIKATU - heroikow tak tanio nikt nie
+   * sprzedaje (uwaga uzytkownika), a pulap liczony z heroika kazalby grze
+   * wysylac wszystkie unikaty az do 10x wyzszej ceny. */
+  function maxOfferPrice(maxPerPoint, targetRarity, maxLvl, fodderRarity) {
+    if (!(maxPerPoint > 0)) return NaN;
+    const lvl = maxLvl || 300;
+    let best = 0;
+    for (const r of fodderRarity ? [fodderRarity] : ['unikat', 'heroik']) {
+      const pts = sacrificeYield({ lvl: lvl, rarity: r, group: 'g', upgrade: 0 },
+        { rarity: targetRarity, group: 'g' });
+      if (pts > best) best = pts;
+    }
+    return maxPerPoint * best;
+  }
+
   return {
+    budgetPlan: budgetPlan, maxOfferPrice: maxOfferPrice,
     RARITY_E: RARITY_E, RARITY_N: RARITY_N, STEP_PCT: STEP_PCT,
     formulaBase: formulaBase, basePoints: basePoints, sacrificeYield: sacrificeYield,
     stepPointsCost: stepPointsCost, totalPointsCost: totalPointsCost,
@@ -2842,7 +2970,7 @@ MU.aggregate = (function () {
       trend: entry.stats.trendPerWeek,
       volatility: entry.stats.volatility,
       sellThrough: entry.liq ? entry.liq.sellThrough : NaN,
-      bonusApplied: !!target && upgrade === 0,
+      bonusApplied: points > MU.upgrade.basePoints(entry.lvl, rarity),
     };
   }
 
@@ -2975,7 +3103,7 @@ MU.aggregate = (function () {
         aid: s.aid, name: s.name, baseName: s.baseName, category: s.category,
         rarity: s.rarity, upgrade: s.upgrade, lvl: s.lvl, price: s.price,
         points: points, costPerPoint: s.price / points,
-        bonusApplied: !!target && s.upgrade === 0,
+        bonusApplied: points > MU.upgrade.basePoints(s.lvl, s.rarity),
       });
     }
     rows.sort(function (a, b) { return a.costPerPoint - b.costPerPoint; });
@@ -3009,22 +3137,22 @@ MU.ui = (function () {
    * uzytkownika) - NIE po koszcie za punkt jak wczesniej. Przedmioty
    * (ITEM_COLS/sortKeyItems ponizej) maja wlasny, osobny stan sortowania. */
   let sortKey = 'bracket', sortDir = 1;
-  let activeTab = 'tabela';
+  /* Pierwsza zakladka to Przedmioty - "Srednie ceny" (id 'tabela') sa na
+   * koncu jako podglad rynku (uwaga uzytkownika). */
+  let activeTab = 'przedmioty';
 
   /* Etykiety trzech nadrzednych grup zasobu (Bronie/Pancerz/Bizuteria -
    * patrz MU.cfg categories[].group) - uzywane wylacznie w zakladce
    * Tabela, ktora teraz operuje na tym nadrzednym podziale zamiast
    * drobiazgowych kategorii (patrz MU.aggregate.buildCoarseTable). */
-  const GROUP_LABELS = { bronie: 'Bronie', pancerz: 'Pancerze', bizuteria: 'Bizuteria' };
+  const GROUP_LABELS = { bronie: 'Bronie', pancerz: 'Pancerze', bizuteria: 'Biżuteria' };
   const GROUP_ORDER = ['bronie', 'pancerz', 'bizuteria'];
 
+  /* Cel ulepszania (rzadkosc/grupa/poziom) nie jest juz tutaj - bierzemy go
+   * z Kalkulatora (patrz currentTarget i `calc`), jedno miejsce zamiast dwoch. */
   const state = {
-    targetRarity: '',   // rzadkosc ulepszanego przedmiotu ('' = brak celu, widok bazowy)
-    targetGroup: '',    // grupa ulepszanego przedmiotu ('' = brak celu)
-    targetLevel: '',    // poziom ulepszanego przedmiotu - potrzebny do wzorow calkowitego kosztu
-    tableGroup: 'bronie',    // zakladka Tabela: dokladnie JEDNA z 3 grup zasobu
-    tableRarity: 'unikat',   // zakladka Tabela: dokladnie JEDNA z 2 rzadkosci (unikat/heroik)
-    targetOpen: false,       // czy zwijana sekcja "Cel ulepszania" jest rozwinieta
+    tableGroup: 'bronie',    // zakladka Srednie ceny: dokladnie JEDNA z 3 grup zasobu
+    tableRarity: 'unikat',   // zakladka Srednie ceny: dokladnie JEDNA z 2 rzadkosci (unikat/heroik)
   };
 
   const CSS = `
@@ -3086,127 +3214,168 @@ MU.ui = (function () {
 .mu-body::-webkit-scrollbar-thumb{background:#444;border-radius:5px}
 .mu-body::-webkit-scrollbar-thumb:hover{background:#555}
 .mu-window .header-label .text{display:flex;align-items:baseline;gap:7px;justify-content:center}
-.mu-window .header-label .text .mu-sub{font-weight:400;opacity:.7;font-size:11px}
 .mu-window .header-label-positioner{cursor:move}
 .mu-window .cards-header-wrapper.tabs-nav .card{cursor:pointer}
 .mu-window .inner-content{display:flex;flex-direction:column;
-  height:min(480px,calc(100vh - 130px));min-height:260px}
-.mu-body{flex:1;overflow:auto;padding:8px;background:#141414;color:#e8e8e8;
-  font:12px/1.4 Arimo,Calibri,Segoe,"Segoe UI",Optima,Arial,sans-serif}
-.mu-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;
-  border-bottom:1px solid #000;background:#191919}
-.mu-bar .mu-fld{display:flex;flex-direction:column;gap:2px}
-.mu-bar .mu-fld>span{font-size:9px;color:#8a8a8a;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-.mu-bar select,.mu-bar input{background:#1c1c1c;border:1px solid #333;color:#e8e8e8;border-radius:4px;
-  padding:3px 5px;font-size:11px;height:24px;transition:border-color .12s ease,background .12s ease}
+  height:min(560px,calc(100vh - 130px));min-height:260px}
+/* --- Wnetrze panelu (wszystko ponizej naglowka i zakladek gry) - jeden
+ * spojny zestaw tokenow zamiast recznie dobieranych kolorow w kazdej
+ * regule: cienkie linie zamiast ciezkich czarnych ramek, zaokraglone
+ * karty, jeden akcent (zloto) i zielen wylacznie dla "miesci sie w
+ * budzecie" (uwaga uzytkownika: "cos nie siedzi", ciemna kolorystyka
+ * zostaje). Naglowek/zakladki/przycisk zamkniecia nadal natywne z gry. */
+.mu-window{--mu-bg:#121212;--mu-s1:#181818;--mu-s2:#1e1e1e;--mu-s3:#262626;--mu-line:#252525;--mu-line2:#343434;
+  --mu-tx:#ebe7e0;--mu-tx2:#a8a29a;--mu-tx3:#77726b;--mu-gold:#e6bd6a;--mu-gold-d:#b98f45;--mu-gold-hi:#f3d28e;
+  --mu-gold-bg:rgba(230,189,106,.07);--mu-gold-line:rgba(230,189,106,.26);
+  --mu-green:#82d69c;--mu-green-bg:rgba(130,214,156,.07);
+  --mu-blue:#93b6d8;--mu-blue-bg:rgba(147,182,216,.06);--mu-blue-line:rgba(147,182,216,.24);
+  --mu-red:#e39191;--mu-r:6px}
+.mu-body{flex:1;overflow:auto;padding:10px;background:var(--mu-bg);color:var(--mu-tx);
+  font:12px/1.45 Arimo,Calibri,Segoe,"Segoe UI",Optima,Arial,sans-serif}
+.mu-body::-webkit-scrollbar{width:8px}
+.mu-body::-webkit-scrollbar-track{background:transparent}
+.mu-body::-webkit-scrollbar-thumb{background:#2e2e2e;border-radius:4px}
+.mu-body::-webkit-scrollbar-thumb:hover{background:#3d3d3d}
+.mu-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:7px 10px;
+  border-bottom:1px solid var(--mu-line);background:#151515}
+.mu-bar .mu-fld{display:flex;flex-direction:column;gap:3px}
+.mu-bar .mu-fld>span{font-size:10px;color:var(--mu-tx3);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.mu-bar select,.mu-bar input{background:var(--mu-s2);border:1px solid var(--mu-line2);color:var(--mu-tx);border-radius:var(--mu-r);
+  padding:3px 7px;font-size:12px;height:26px;transition:border-color .12s ease}
 .mu-bar select{cursor:pointer;min-width:88px}
-.mu-bar select:hover,.mu-bar input:hover{border-color:#666}
+.mu-bar select:hover,.mu-bar input:hover{border-color:#4a4a4a}
 .mu-bar select:focus-visible,.mu-bar input:focus-visible,.mu-btn:focus-visible,.mu-icon-btn:focus-visible,
-.mu-seg:focus-visible,table.mu-t th:focus-visible{outline:2px solid #c99a4a;outline-offset:1px}
-.mu-btn{background:#2a2a2a;border:1px solid #444;color:#e8e8e8;border-radius:4px;padding:0 10px;height:24px;
-  cursor:pointer;font-size:11px;font-weight:600;transition:background .12s ease,transform .05s ease}
-.mu-btn:hover{background:#383838}
+.mu-seg:focus-visible,.mu-link:focus-visible,table.mu-t th:focus-visible{outline:2px solid var(--mu-gold-d);outline-offset:1px}
+.mu-btn{background:var(--mu-s3);border:1px solid var(--mu-line2);color:var(--mu-tx);border-radius:var(--mu-r);padding:0 12px;height:28px;
+  cursor:pointer;font-size:12px;font-weight:600;transition:background .12s ease,border-color .12s ease,transform .05s ease}
+.mu-btn:hover{background:#2f2f2f;border-color:#474747}
 .mu-btn:active{transform:translateY(1px)}
+/* Glowna akcja zakladki Zbieranie - jedyny przycisk w kolorze akcentu. */
+#mu-load-all,#mu-load-resume{background:#2b2417;border-color:#5e4b27;color:#f1d59a}
+#mu-load-all:hover,#mu-load-resume:hover{background:#352c1b;border-color:#7a6232}
 .mu-bar-spacer{flex:1 0 4px}
-/* Male, kwadratowe przyciski-ikony (Eksport/Odswiez) - oszczedzaja
- * miejsce w waskim oknie w porownaniu do przyciskow z pelnym tekstem. */
-.mu-icon-btn{background:#2a2a2a;border:1px solid #444;color:#e8e8e8;border-radius:4px;width:24px;height:24px;
+.mu-goal{font-size:12px;color:var(--mu-tx3);line-height:1.4}
+.mu-goal b{color:var(--mu-tx);font-weight:600}
+.mu-link{background:none;border:none;border-bottom:1px dotted var(--mu-gold-d);padding:0;margin-left:4px;color:var(--mu-gold);
+  cursor:pointer;font-size:12px}
+.mu-link:hover{color:var(--mu-gold-hi)}
+.mu-icon-btn{background:var(--mu-s3);border:1px solid var(--mu-line2);color:var(--mu-tx2);border-radius:var(--mu-r);width:26px;height:26px;
   cursor:pointer;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;
-  transition:background .12s ease,transform .05s ease}
-.mu-icon-btn:hover{background:#383838}
+  transition:background .12s ease,color .12s ease}
+.mu-icon-btn:hover{background:#2f2f2f;color:var(--mu-tx)}
 .mu-icon-btn:active{transform:translateY(1px)}
-/* Segmentowany przelacznik (wybor DOKLADNIE JEDNEJ opcji: grupa zasobu /
- * rzadkosc) - ZLACZONY pasek przyciskow, nie osobne "pigulki". Kolory
- * 1:1 z realnego CSS gry: aktywna zakladka = ten sam gradient co .card
- * (glowne zakladki okna), nieaktywna = rgb(112,113,114) - dokladnie kolor
- * nieaktywnego .action-menu-item w lewym panelu okna Aukcji. */
-.mu-seg-block{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.mu-seg-lbl{font-size:9px;color:#8a8a8a;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-.mu-seg-row{display:flex}
-.mu-seg{padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;color:#707172;
-  background:linear-gradient(#2b2b2b,#1e1e1e);border:1px solid #000;border-left:none;transition:color .12s ease}
-.mu-seg:first-child{border-left:1px solid #000;border-radius:3px 0 0 3px}
-.mu-seg:last-child{border-radius:0 3px 3px 0}
-.mu-seg:hover{color:#a0a0a0}
-.mu-seg.mu-active{color:#fff;background:linear-gradient(rgb(100,100,100),rgb(63,63,63))}
-.mu-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:8px}
-.mu-subtitle{font-size:11px;color:#8a8a8a;margin:0 0 8px;line-height:1.5}
-.mu-subtitle b{color:#c99a4a}
-/* Pasek statystyk w jednej linii + wbudowany pasek postepu zbierania
- * danych (patrz .mu-progress) zamiast osobnego duzego bloku tekstu. */
-.mu-stats-line{font-size:11px;color:#8a8a8a;margin:0 0 8px;display:flex;flex-wrap:wrap;align-items:center;
-  column-gap:12px;row-gap:4px;border-bottom:1px solid #000;padding-bottom:7px}
-.mu-stats-line b{color:#e8e8e8;font-weight:600}
-.mu-stats-line b.mu-hi{color:#f0d090}
-.mu-progress-wrap{display:flex;align-items:center;gap:6px;margin-left:auto;color:#8a8a8a}
-/* Pasek postepu - te same wartosci co natywna klasa gry
- * .interface-element-progress-bar-2 (uzywana w oknach questow/rzemiosla):
- * ciemny tor, jasna cienka obwodka, zloto-brazowy gradient wypelnienia. */
-.mu-progress{width:70px;height:9px;background:rgb(54,52,53);border:1px solid rgb(204,204,204);
-  border-radius:4px;overflow:hidden}
-.mu-progress i{display:block;height:100%;background:linear-gradient(rgb(184,119,40) 70%,rgb(147,96,33) 70%)}
-/* Zwijana sekcja "cel ulepszania" - domyslnie zwinieta, bo dotyczy
- * tylko dodatkowego szacunku calkowitego kosztu +0->+5 (patrz
- * renderTable) i nie jest potrzebna przy zwyklym przegladaniu tabeli. */
-.mu-target{margin:0 0 8px;border:1px solid #000;border-radius:4px;background:#1a1a1a}
-.mu-target summary{padding:5px 8px;cursor:pointer;font-size:10px;color:#8a8a8a;text-transform:uppercase;
-  letter-spacing:.4px;font-weight:600;list-style:none}
+/* Przelacznik: przyciski w jednej "rynience" (ciemniejsze wglebienie),
+ * aktywny jako jasniejszy klawisz - zamiast zlaczonych gradientow. */
+.mu-seg-block{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mu-seg-lbl{font-size:10px;color:var(--mu-tx3);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.mu-seg-row{display:inline-flex;justify-self:start;gap:2px;padding:2px;background:rgba(0,0,0,.3);
+  border:1px solid var(--mu-line);border-radius:var(--mu-r)}
+.mu-seg{padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;color:var(--mu-tx3);background:transparent;
+  border:none;border-radius:4px;transition:color .12s ease,background .12s ease}
+.mu-seg:hover{color:var(--mu-tx);background:#202020}
+.mu-seg.mu-active{color:#fff;background:#333;box-shadow:inset 0 0 0 1px #454545}
+.mu-row{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px}
+.mu-subtitle{font-size:11px;color:var(--mu-tx2);margin:0 0 10px;line-height:1.55}
+.mu-subtitle b{color:var(--mu-gold);font-weight:600}
+/* Statystyki jako male "pigulki" zamiast ciagu tekstu z linia pod spodem. */
+.mu-stats-line{font-size:11px;color:var(--mu-tx3);margin:0 0 10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mu-stats-line>span{background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:999px;padding:2px 9px}
+.mu-stats-line b{color:var(--mu-tx);font-weight:600;font-variant-numeric:tabular-nums}
+.mu-stats-line b.mu-hi{color:var(--mu-gold)}
+.mu-stats-line b.mu-pos{color:var(--mu-green)}
+.mu-progress-wrap{display:flex;align-items:center;gap:6px;margin-left:auto;color:var(--mu-tx3)}
+.mu-progress{width:56px;height:6px;background:#2a2a2a;border-radius:3px;overflow:hidden}
+.mu-progress i{display:block;height:100%;background:var(--mu-gold-d)}
+.mu-target{margin:0 0 10px;border:1px solid var(--mu-line);border-radius:8px;background:var(--mu-s1)}
+.mu-target summary{padding:7px 10px;cursor:pointer;font-size:10px;color:var(--mu-tx2);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:600;list-style:none}
+.mu-target summary:hover{color:var(--mu-tx)}
 .mu-target summary::-webkit-details-marker{display:none}
-.mu-target summary::before{content:'\\25B8\\0020';display:inline-block}
+.mu-target summary::before{content:'\\25B8\\0020';display:inline-block;color:var(--mu-tx3)}
 .mu-target[open] summary::before{content:'\\25BE\\0020'}
-.mu-target[open] summary{border-bottom:1px solid #000}
-.mu-target-body{padding:7px 8px;display:flex;flex-wrap:wrap;gap:7px}
-table.mu-t{width:100%;border-collapse:collapse;font-size:11px}
-table.mu-t th{position:sticky;top:0;background:#1c1c1c;color:#999;text-align:right;padding:4px 4px;border-bottom:1px solid #333;
-  cursor:pointer;white-space:nowrap;font-weight:600;z-index:1;user-select:none;transition:background .12s ease,color .12s ease}
-table.mu-t th:hover{color:#ccc;background:#242424}
-table.mu-t th.mu-sorted{color:#f0d090;box-shadow:inset 0 -2px 0 #c99a4a}
+.mu-target[open] summary{border-bottom:1px solid var(--mu-line)}
+.mu-target-body{padding:8px 10px;display:flex;flex-wrap:wrap;gap:8px}
+/* Tabele: bez zebry i ciezkich ramek - cienkie separatory, rowne cyfry
+ * (tabular-nums), naglowek male kapitaliki. */
+table.mu-t{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;font-variant-numeric:tabular-nums}
+table.mu-t th{position:sticky;top:0;background:#161616;color:var(--mu-tx3);text-align:right;padding:6px 5px;
+  border-bottom:1px solid var(--mu-line2);cursor:pointer;white-space:nowrap;font-weight:600;font-size:10px;
+  text-transform:uppercase;letter-spacing:.04em;z-index:1;user-select:none;transition:color .12s ease}
+table.mu-t th:hover{color:var(--mu-tx)}
+table.mu-t th.mu-sorted{color:var(--mu-gold);box-shadow:inset 0 -2px 0 var(--mu-gold-d)}
 table.mu-t th:first-child{text-align:left}
-table.mu-t td{padding:3px 4px;border-bottom:1px solid #232323;text-align:right;white-space:nowrap;color:#e8e8e8}
+table.mu-t td{padding:5px;border-bottom:1px solid #1d1d1d;text-align:right;white-space:nowrap;color:var(--mu-tx)}
 /* Pierwsza kolumna (nazwa przedmiotu / przedzial) moze sie zawijac -
- * nazwy przedmiotow nie maja gornego limitu dlugosci, wiec zamiast
- * szukac szerokosci okna "wystarczajacej na wszystko" (niemozliwe),
- * pozwalamy tej JEDNEJ kolumnie rosnac w pionie zamiast wymuszac
- * poziome przewijanie calej tabeli. */
+ * nazwy nie maja gornego limitu dlugosci. */
 table.mu-t td:first-child{text-align:left;white-space:normal;word-break:break-word;max-width:150px}
-table.mu-t tbody tr:nth-child(even) td{background:rgba(0,0,0,.25)}
-table.mu-t tr:hover td{background:rgba(255,255,255,.06)}
-/* Wynik kluczowy (koszt za punkt) - najwazniejsza liczba w calej tabeli,
- * jedyna czesc danych z akcentem zlota (hierarchia wizualna: reszta
- * tabeli jest neutralnie biala/szara). */
-table.mu-t td.mu-hi{color:#f0d090;font-weight:700}
+table.mu-t tbody tr:hover td{background:rgba(255,255,255,.035)}
+table.mu-t td.mu-hi{color:var(--mu-gold);font-weight:700}
+/* Oferta miesci sie w budzecie z Kalkulatora - zielony koszt/pkt i pasek po lewej. */
+table.mu-t tbody tr.mu-ok td{background:var(--mu-green-bg)}
+table.mu-t tbody tr.mu-ok:hover td{background:rgba(130,214,156,.12)}
+table.mu-t tbody tr.mu-ok td:first-child{box-shadow:inset 2px 0 0 var(--mu-green)}
+table.mu-t tbody tr.mu-ok td.mu-hi{color:var(--mu-green)}
 .auction-window.mu-pager-running .auction-table tr{display:none}
-/* Pusty przedzial: zamiast myslnika powtorzonego w kazdej komorce (szum
- * wizualny), caly wiersz jest wygaszony, a komorki poza pierwsza (nazwa
- * przedzialu) sa po prostu puste. */
-tr.mu-empty-row td{color:#4a4a4a;opacity:.6}
-tr.mu-empty-row td:first-child{color:#8a8a8a;opacity:1}
-.mu-v{padding:1px 7px;border-radius:3px;font-size:11px;font-weight:600;display:inline-block}
+/* Podpowiedz "Max. cena" - zlota karta; informacja (Srednie ceny) - ta sama
+ * karta w chlodnym kolorze. Pelna, delikatna ramka zamiast grubego paska. */
+.mu-callout{margin:10px 0 8px;padding:10px 12px;border:1px solid var(--mu-gold-line);border-radius:8px;
+  background:var(--mu-gold-bg);color:var(--mu-tx);font-size:12px;line-height:1.5}
+.mu-callout .mu-callout-lbl{display:block;font-size:10px;color:var(--mu-gold);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:700;margin-bottom:4px}
+.mu-callout .mu-callout-val{font-size:17px;font-weight:700;color:var(--mu-gold-hi);font-variant-numeric:tabular-nums}
+.mu-callout .mu-callout-sub{color:var(--mu-tx2);font-size:11px}
+.mu-callout b{color:var(--mu-gold-hi)}
+.mu-callout-row+.mu-callout-row{margin-top:8px}
+.mu-callout-foot{margin-top:9px;padding-top:8px;border-top:1px solid var(--mu-gold-line)}
+.mu-callout.mu-info{border-color:var(--mu-blue-line);background:var(--mu-blue-bg)}
+.mu-callout.mu-info .mu-callout-lbl{color:var(--mu-blue)}
+.mu-callout.mu-info b{color:#d3e3f2}
+.mu-calc-line{font-size:11px;color:var(--mu-tx2);margin:0 0 10px;line-height:1.5}
+.mu-calc-line b{color:var(--mu-tx);font-variant-numeric:tabular-nums}
+/* Formularz kalkulatora jako siatka: etykiety w jednej kolumnie, przyciski
+ * i pola rowno pod soba. */
+.mu-calc-grid{display:grid;grid-template-columns:max-content 1fr;align-items:center;gap:7px 12px;margin:0 0 12px}
+.mu-calc-inputs{display:flex;align-items:center;gap:12px}
+.mu-calc-grid input{box-sizing:border-box;background:var(--mu-s2);border:1px solid var(--mu-line2);color:var(--mu-tx);
+  border-radius:var(--mu-r);padding:3px 8px;font-size:12px;height:26px;font-variant-numeric:tabular-nums;
+  transition:border-color .12s ease}
+.mu-calc-grid input:hover{border-color:#4a4a4a}
+.mu-calc-grid input:focus{border-color:var(--mu-gold-d);outline:none}
+#mu-calc-lvl{width:64px}
+#mu-calc-budget{width:100px}
+.mu-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 4px}
+.mu-tile{box-sizing:border-box;min-width:0;padding:8px 11px;background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:8px}
+.mu-tile-lbl{display:block;font-size:10px;color:var(--mu-tx3);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.mu-tile-val{display:block;font-size:20px;font-weight:700;color:var(--mu-gold);line-height:1.25;font-variant-numeric:tabular-nums}
+.mu-status{font-size:11px;margin:10px 0 0;line-height:1.5;color:var(--mu-tx2)}
+/* Pusty przedzial: caly wiersz wygaszony, komorki poza pierwsza puste. */
+tr.mu-empty-row td{color:#3d3d3d}
+tr.mu-empty-row td:first-child{color:var(--mu-tx3)}
+.mu-v{padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600;display:inline-block}
 .mu-v-oplaca{background:#1d3a24;color:#6ee08a;border:1px solid #2f6b3d}
 .mu-v-ryzykowne{background:#3a3218;color:#e0c46e;border:1px solid #6b5c2f}
 .mu-v-marginalne{background:#2a2a2a;color:#b0b0b0;border:1px solid #4a4a4a}
 .mu-v-nie-oplaca{background:#3a1d1d;color:#e08a8a;border:1px solid #6b2f2f}
 .mu-v-za-malo-danych,.mu-v-brak-danych{background:#22252e;color:#7f8ba3;border:1px solid #39415a}
-.mu-pos{color:#6ee08a}.mu-neg{color:#e08a8a}.mu-mut{color:#888}
-.mu-conf{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
-.mu-conf i{display:block;width:24px;height:6px;background:#2a2a2a;border-radius:3px;overflow:hidden}
+.mu-pos{color:var(--mu-green)}.mu-neg{color:var(--mu-red)}.mu-mut{color:var(--mu-tx3)}
+.mu-conf{display:inline-flex;align-items:center;gap:5px;vertical-align:middle}
+.mu-conf i{display:block;width:26px;height:5px;background:#2a2a2a;border-radius:3px;overflow:hidden}
 .mu-conf i b{display:block;height:100%;background:#6b8f4a;transition:width .2s ease}
-.mu-conf span{font-size:10px;color:#8a8a8a;min-width:22px}
-.mu-empty{padding:28px 14px;text-align:center;color:#888;line-height:1.6;font-size:11px}
-.mu-empty b{color:#ccc}
-.mu-kpi{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.mu-kpi div{background:#1a1a1a;border:1px solid #000;border-radius:5px;padding:5px 9px;min-width:78px}
-.mu-kpi span{display:block;font-size:9px;color:#8a8a8a;text-transform:uppercase;letter-spacing:.3px}
-.mu-kpi b{font-size:14px;color:#e8e8e8;font-weight:600}
-.mu-sec{margin:0 0 6px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #000;padding-bottom:4px}
-.mu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:7px;margin-bottom:14px}
-.mu-f{background:#1a1a1a;border:1px solid #000;border-radius:4px;padding:5px 7px;transition:border-color .12s ease}
-.mu-f:focus-within{border-color:#666}
-.mu-f label{display:block;font-size:9px;color:#8a8a8a;margin-bottom:3px;text-transform:uppercase}
-.mu-f input,.mu-f select{width:100%;background:#1c1c1c;border:1px solid #333;color:#e8e8e8;border-radius:3px;padding:4px 6px;font-size:11px}
-.mu-note{background:#1a1a1a;border-left:3px solid #555;padding:6px 9px;margin:0 0 10px;color:#aaa;font-size:11px;line-height:1.5}
-.mu-warn{background:#1e1a12;border-left:3px solid #8a6a3a;padding:6px 9px;margin:0 0 10px;color:#c0a47a;font-size:11px;line-height:1.5}
-pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8px;overflow:auto;max-height:180px;
+.mu-conf span{font-size:10px;color:var(--mu-tx3);min-width:22px}
+.mu-empty{padding:30px 16px;text-align:center;color:var(--mu-tx3);line-height:1.6;font-size:12px}
+.mu-empty b{color:var(--mu-tx)}
+.mu-sec{margin:2px 0 10px;font-size:10px;color:var(--mu-tx3);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.mu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:14px}
+.mu-f{background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:8px;padding:6px 8px;transition:border-color .12s ease}
+.mu-f:focus-within{border-color:#4a4a4a}
+.mu-f label{display:block;font-size:10px;color:var(--mu-tx3);margin-bottom:3px;text-transform:uppercase}
+.mu-f input,.mu-f select{width:100%;background:var(--mu-s2);border:1px solid var(--mu-line2);color:var(--mu-tx);
+  border-radius:4px;padding:4px 6px;font-size:11px}
+.mu-note{background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:8px;padding:8px 10px;margin:0 0 10px;
+  color:var(--mu-tx2);font-size:11px;line-height:1.5}
+.mu-warn{background:rgba(230,170,90,.07);border:1px solid rgba(230,170,90,.25);border-radius:8px;padding:8px 10px;
+  margin:0 0 10px;color:#dcb98a;font-size:11px;line-height:1.5}
+pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;padding:8px;overflow:auto;max-height:180px;
   font:10px/1.4 ui-monospace,Consolas,monospace;color:#9a9a9a}
 `;
 
@@ -3223,9 +3392,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
   }
 
   const TABS = [
-    { id: 'tabela', label: 'Tabela' },
     { id: 'przedmioty', label: 'Przedmioty' },
+    { id: 'kalkulator', label: 'Kalkulator' },
     { id: 'zbieranie', label: 'Zbieranie' },
+    { id: 'tabela', label: 'Średnie ceny' },
   ];
 
   /* Docelowy rodzic dla naszego okna: ten sam kontener, w ktorym gra
@@ -3379,7 +3549,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     document.head.appendChild(style);
 
     const icon = el('button', {
-      class: 'mu-bar-icon', title: 'Ulepy - oplacalnosc ulepszania (przeciagnij, zeby przesunac)',
+      class: 'mu-bar-icon', title: 'Ulepy – opłacalność ulepszania (przeciągnij, żeby przesunąć)',
     }, '<span class="mu-bi-glyph">U</span><span class="mu-dot"></span>');
     /* Domyslna pozycja obok natywnego paska widgetow - ALE jesli
      * uzytkownik juz kiedys przeciagnal ikone gdzie indziej, ta zapisana
@@ -3424,7 +3594,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
         '<div class="header-label">' +
           '<div class="left-decor"></div>' +
           '<div class="right-decor"></div>' +
-          '<div class="text" name="Ulepy">Ulepy <span class="mu-sub" id="mu-sub"></span></div>' +
+          '<div class="text" name="Ulepy">Ulepy</div>' +
         '</div>' +
       '</div>' +
       '<div class="content">' +
@@ -3453,18 +3623,39 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     makeDraggable(panel, panel.querySelector('.draggable-window-element'), WINDOW_POS_KEY);
     installWheelScroll(panel.querySelector('#mu-body'));
 
+    /* Wpisywanie w pola panelu (poziom, budzet "6g"...) nie moze odpalac
+     * skrotow klawiszowych gry. Tylko dla pol tekstowych - klawisze przy
+     * fokusie na przyciskach panelu dalej trafiaja do gry. */
+    ['keydown', 'keyup', 'keypress'].forEach(function (type) {
+      panel.addEventListener(type, function (e) {
+        const t = e.target && e.target.tagName;
+        if (t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA') e.stopPropagation();
+      });
+    });
+
     /* Ikona i okno zawsze na ekranie - rowniez po zmianie rozmiaru okna
      * przegladarki. Na zywo: ikona zamontowana przy szerokim oknie zostala
      * na x=922 po zwezeniu okna do 337px i nie dalo sie jej kliknac. */
     function keepOnScreen() {
       [icon, panel].forEach(function (x) {
-        const c = clampPos(parseInt(x.style.left, 10) || 0, parseInt(x.style.top, 10) || 0);
+        let left = parseInt(x.style.left, 10) || 0;
+        let top = parseInt(x.style.top, 10) || 0;
+        /* Otwarte okno (ma wtedy wymiary) miesci sie w CALOSCI, jesli ekran
+         * na to pozwala - samo "60 px widoczne" z clampPos wystarcza dla
+         * ikony, ale okno zostawialo prawie calkiem poza ekranem (lokalny
+         * test: lewa krawedz na 740 z 800 px). */
+        if (x === panel && x.offsetWidth) {
+          left = Math.min(left, Math.max(0, window.innerWidth - x.offsetWidth));
+          top = Math.min(top, Math.max(0, window.innerHeight - x.offsetHeight));
+        }
+        const c = clampPos(left, top);
         x.style.left = c.left + 'px';
         x.style.top = c.top + 'px';
       });
     }
     keepOnScreen();
     window.addEventListener('resize', U.debounce(keepOnScreen, 150));
+    root.keepOnScreen = keepOnScreen;
 
     panel.querySelector('.close-button').addEventListener('click', toggle);
     panel.querySelectorAll('#mu-tabs .card').forEach(function (b) {
@@ -3481,6 +3672,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     mount();
     const open = panel.classList.toggle('mu-open');
     if (open) {
+      /* Dopiero otwarte okno ma wymiary - dopasuj je do ekranu teraz. */
+      if (root.keepOnScreen) root.keepOnScreen();
       root.icon.querySelector('.mu-dot').style.display = 'none';
       refresh();
     }
@@ -3511,11 +3704,23 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
   }, 400);
   MU.sniffer.onLiveSnapshot(renderLiveDebounced);
 
-  /* Postep "Zaladuj wszystkie strony" (i zamiana przycisku na Zatrzymaj). */
-  const renderPagerDebounced = U.debounce(function () {
-    if (panel && panel.classList.contains('mu-open') && activeTab === 'zbieranie') render(true);
-  }, 200);
+  /* Postep "Zaladuj wszystkie strony" (i zamiana przycisku na Zatrzymaj).
+   * Throttle, nie debounce: przy stronach szybszych niz 200 ms debounce
+   * odkladal render w nieskonczonosc i postep sie w ogole nie pokazywal
+   * (lokalny symulator). Teraz najwyzej raz na 200 ms, zawsze z aktualnym
+   * stanem - takze ostatnia aktualizacja po zakonczeniu. */
+  let pagerRenderTimer = null;
+  function renderPagerDebounced() {
+    if (pagerRenderTimer) return;
+    pagerRenderTimer = setTimeout(function () {
+      pagerRenderTimer = null;
+      if (panel && panel.classList.contains('mu-open') && activeTab === 'zbieranie') render(true);
+    }, 200);
+  }
   MU.sniffer.onPager(renderPagerDebounced);
+  /* Gdy gracz otworzy/zmieni liste w oknie aukcji - odswiez Zbieranie, zeby
+   * przycisk "Wznow" pojawil sie od razu po powrocie do tej samej listy. */
+  MU.sniffer.onAhTask(renderPagerDebounced);
 
   /* bodyOnly=true: wywolane w tle (nowe dane), NIE przez akcje uzytkownika -
    * pomija przebudowe paska filtrow (renderBar), zeby nie wycinac w polu
@@ -3540,91 +3745,57 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
   function confBar(c) {
     const pctv = Math.round((c || 0) * 100);
     const color = pctv >= 60 ? '#6b8f4a' : (pctv >= 30 ? '#8f7d4a' : '#8f4a4a');
-    return '<span class="mu-conf" title="Pewnosc danych: ' + pctv + '%">' +
+    return '<span class="mu-conf" title="Pewność danych: ' + pctv + '%">' +
       '<i><b style="width:' + pctv + '%;background:' + color + '"></b></i>' +
       '<span>' + pctv + '%</span></span>';
   }
 
-  /* "Cel ulepszania" (rzadkosc/grupa/poziom przedmiotu, KTORY ulepszamy)
-   * jest wspolny dla obu zakladek (Tabela i Przedmioty) - dawniej byl to
-   * wiersz 3 pol zajmujacy polowe szerokosci paska, teraz to jedna
-   * zwijana sekcja (domyslnie zwinieta - dotyczy tylko dodatkowego,
-   * opcjonalnego szacunku CALKOWITEGO kosztu +0->+5, patrz renderTable),
-   * co w waskim oknie robi ogromna roznice w ilosci miejsca. */
-  function targetSummaryLabel() {
+  /* Cel ulepszania = to, co wpisane w Kalkulatorze (rzadkosc, grupa,
+   * poziom). Dawniej osobna zwijana sekcja "Cel ulepszania" nad lista -
+   * dublowala Kalkulator i latwo bylo policzyc bonus dwa razy (uwaga
+   * uzytkownika). Teraz w pasku jest tylko linijka, dla czego liczymy. */
+  function goalHtml() {
     const t = currentTarget();
-    if (!t) return '';
-    const parts = [];
-    if (t.rarity) parts.push(MU.cfg.rarityById(t.rarity).label);
-    if (t.group) parts.push(GROUP_LABELS[t.group] || t.group);
-    if (t.lvl) parts.push('lvl ' + t.lvl);
-    return parts.join(', ');
+    const parts = [MU.cfg.rarityById(t.rarity).label + (t.lvl ? ' lvl ' + t.lvl : '')];
+    parts.push(t.group ? GROUP_LABELS[t.group] : 'grupa nie wybrana');
+    return '<div class="mu-goal">Ulepszasz: <b>' + U.escapeHtml(parts.join(' · ')) + '</b> ' +
+      '<button type="button" class="mu-link" id="mu-goto-calc">zmień w Kalkulatorze</button></div>';
   }
 
-  function renderTargetDetails(cfg) {
-    const label = targetSummaryLabel();
-    return '<details class="mu-target" id="mu-target-details"' + (state.targetOpen ? ' open' : '') + '>' +
-      '<summary>Cel ulepszania' + (label ? ': <b>' + U.escapeHtml(label) + '</b>' : ' (brak - widok bazowy)') + '</summary>' +
-      '<div class="mu-target-body">' +
-        '<div class="mu-fld" title="Rzadkosc przedmiotu, ktory ulepszasz - wlacza bonus +200% za dopasowanie rzadkosci skladnika">' +
-          '<span>Rzadkosc</span><select id="mu-trar"><option value="">- brak -</option>' +
-          cfg.targetRarities.map(function (r) {
-            return '<option value="' + r.id + '"' +
-              (state.targetRarity === r.id ? ' selected' : '') + '>' + r.label + '</option>';
-          }).join('') + '</select></div>' +
-        '<div class="mu-fld" title="Grupa ulepszanego przedmiotu (bronie/pancerz/bizuteria) - wlacza bonus +25% za dopasowanie grupy skladnika">' +
-          '<span>Grupe</span><select id="mu-tgrp"><option value="">- brak -</option>' +
-          '<option value="bronie"' + (state.targetGroup === 'bronie' ? ' selected' : '') + '>Bronie</option>' +
-          '<option value="pancerz"' + (state.targetGroup === 'pancerz' ? ' selected' : '') + '>Pancerz</option>' +
-          '<option value="bizuteria"' + (state.targetGroup === 'bizuteria' ? ' selected' : '') + '>Bizuteria</option>' +
-          '</select></div>' +
-        '<div class="mu-fld" title="Poziom ulepszanego przedmiotu - potrzebny do wzoru calkowitego kosztu +0 -> +5">' +
-          '<span>Poziom</span><input type="number" id="mu-tlvl" min="1" max="300" style="width:56px" value="' +
-          U.escapeHtml(String(state.targetLevel)) + '"></div>' +
-      '</div>' +
-    '</details>';
+  function goTab(id) {
+    const card = panel && panel.querySelector('#mu-tabs .card[data-tab="' + id + '"]');
+    if (card) card.click();
   }
 
-  function wireTargetDetails(container) {
-    const details = container.querySelector('#mu-target-details');
-    if (!details) return;
-    details.addEventListener('toggle', function () { state.targetOpen = details.open; });
-    container.querySelector('#mu-trar').onchange = function (e) { state.targetRarity = e.target.value; render(); };
-    container.querySelector('#mu-tgrp').onchange = function (e) { state.targetGroup = e.target.value; render(); };
-    /* oninput (na biezaco), nie onchange (dopiero po opuszczeniu pola) -
-     * ale przez render(true) (bodyOnly), zeby NIE przebudowywac paska
-     * (a wiec i tego pola) przy kazdym znaku - inaczej pole samo sobie
-     * kasowaloby fokus/kursor po kazdym wpisanym znaku. */
-    container.querySelector('#mu-tlvl').oninput = function (e) { state.targetLevel = e.target.value; render(true); };
-  }
-
-  /* Pasek nad tabela: teraz tylko wspolna sekcja "Cel ulepszania" +
+  /* Pasek nad lista: linijka "Ulepszasz: ..." (cel z Kalkulatora) +
    * przyciski akcji (male ikony, nie przyciski z pelnym tekstem - patrz
    * .mu-icon-btn). Filtry WLASCIWE danej zakladki (Kategoria/Rzadkosc w
    * Tabeli, Kategoria/Rzadkosc skladnika w Przedmiotach) sa teraz
    * renderowane w tresci danej zakladki (renderTable/renderItems), bo sa
    * scisle zwiazane z tym, co ta zakladka akurat pokazuje. */
   function renderBar() {
-    const cfg = MU.cfg.get();
     const bar = panel.querySelector('#mu-bar');
-    if (activeTab !== 'tabela' && activeTab !== 'przedmioty') { bar.innerHTML = ''; return; }
+    /* Na zakladkach bez paska (Kalkulator, Zbieranie) chowamy go calkiem -
+     * pusty pasek zostawial pod zakladkami zbedny pas (uwaga uzytkownika). */
+    if (activeTab !== 'tabela' && activeTab !== 'przedmioty') { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+    bar.style.display = '';
 
-    bar.innerHTML = renderTargetDetails(cfg) +
+    bar.innerHTML = goalHtml() +
       '<div class="mu-bar-spacer"></div>' +
       '<button class="mu-icon-btn" id="mu-csv" title="Eksport CSV">&#8681;</button>' +
-      '<button class="mu-icon-btn" id="mu-refresh" title="Odswiez teraz">&#8635;</button>';
+      '<button class="mu-icon-btn" id="mu-refresh" title="Odśwież teraz">&#8635;</button>';
 
-    wireTargetDetails(bar);
+    bar.querySelector('#mu-goto-calc').onclick = function () { goTab('kalkulator'); };
     bar.querySelector('#mu-csv').onclick = exportCsv;
     /* Owiniete w funkcje - onclick przekazalby MouseEvent jako pierwszy
      * argument refresh(bodyOnly), co przypadkiem wlaczyloby tryb "w tle". */
     bar.querySelector('#mu-refresh').onclick = function () { refresh(); };
   }
 
+  /* Zawsze jest jakis cel - rzadkosc w Kalkulatorze ma wartosc domyslna. */
   function currentTarget() {
-    if (!state.targetRarity && !state.targetGroup) return null;
-    const lvl = parseInt(state.targetLevel, 10);
-    return { rarity: state.targetRarity || null, group: state.targetGroup || null,
+    const lvl = parseInt(calc.lvl, 10);
+    return { rarity: calc.rarity, group: calc.group || null,
       lvl: isFinite(lvl) && lvl > 0 ? lvl : null };
   }
 
@@ -3639,16 +3810,28 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
    * wygasza go jednym spojnym stylem, zamiast powtarzac "-" w kazdej
    * kolumnie (szum wizualny, patrz zadanie uzytkownika o hierarchii). */
   const COLS = [
-    { k: 'bracket', t: 'Przedzial', f: function (r) { return U.escapeHtml(r.bracket); } },
-    { k: 'lvl', t: 'Sr.lvl', f: function (r) { return r.empty ? '' : U.round(r.lvl, 0); } },
+    { k: 'bracket', t: 'Przedział', f: function (r) { return U.escapeHtml(r.bracket); } },
+    { k: 'lvl', t: 'Śr. lvl', f: function (r) { return r.empty ? '' : U.round(r.lvl, 0); } },
     { k: 'price', t: 'Cena', f: function (r) { return r.empty ? '' : U.gold(r.price); } },
     { k: 'points', t: 'Pkt', f: function (r) {
         if (r.empty) return '';
         return r.points + (r.bonusApplied ? '<span class="mu-pos" title="z bonusem za dopasowanie do celu">*</span>' : ''); } },
     { k: 'costPerPoint', t: 'Koszt/pkt', f: function (r) { return r.empty ? '' : U.gold(r.costPerPoint); },
       cls: function (r) { return r.empty ? '' : 'mu-hi'; } },
-    { k: 'confidence', t: 'Pewnosc', f: function (r) { return r.empty ? '' : confBar(r.confidence); } },
+    { k: 'confidence', t: 'Pewność', f: function (r) { return r.empty ? '' : confBar(r.confidence); } },
   ];
+
+  /* Zakladka "Srednie ceny" (dawniej "Tabela") to podglad rynku, nie lista
+   * zakupow - stad ramka z wyjasnieniem na gorze (uwaga uzytkownika). */
+  function avgInfoHtml(cfg) {
+    return '<div class="mu-callout mu-info"><span class="mu-callout-lbl">Co tu jest</span>' +
+      'Tu dodatek w tle zbiera <b>średnie ceny</b> z domu aukcyjnego. Z każdej oferty, którą zobaczysz ' +
+      'w oknie aukcji, zapisuje cenę i trzyma ją do ' + cfg.stats.retentionDays + ' dni – świeższe liczą się ' +
+      'bardziej. Dla każdego przedziału poziomów widzisz typową cenę przedmiotu i ile średnio wychodzi za punkt.' +
+      '<div class="mu-callout-sub" style="margin-top:4px">To podgląd rynku, nie lista zakupów – konkretne oferty ' +
+      'do kupienia są w zakładce <b>Przedmioty</b>. Jeśli ładujesz aukcje z ustawioną Max. ceną, trafiają tu ' +
+      'tylko tanie oferty, więc średnie wyjdą niższe niż naprawdę.</div></div>';
+  }
 
   function renderTable(body) {
     const cfg = MU.cfg.get();
@@ -3690,13 +3873,13 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
      * z 3 grup i jednej z 2 rzadkosci, od razu widoczny, bez rozwijania
      * list (patrz zadanie uzytkownika o intuicyjnosci) - zlaczony pasek
      * przyciskow w stylu natywnych kontrolek gry (patrz CSS .mu-seg). */
-    let html = '<div class="mu-row">' +
+    let html = avgInfoHtml(cfg) + '<div class="mu-row">' +
       '<div class="mu-seg-block"><span class="mu-seg-lbl">Kategoria</span><div class="mu-seg-row" id="mu-tabgrp-pills">' +
         GROUP_ORDER.map(function (g) {
           return '<button type="button" class="mu-seg' + (state.tableGroup === g ? ' mu-active' : '') +
             '" data-g="' + g + '">' + GROUP_LABELS[g] + '</button>';
         }).join('') + '</div></div>' +
-      '<div class="mu-seg-block"><span class="mu-seg-lbl">Rzadkosc</span><div class="mu-seg-row" id="mu-tabrar-pills">' +
+      '<div class="mu-seg-block"><span class="mu-seg-lbl">Rzadkość</span><div class="mu-seg-row" id="mu-tabrar-pills">' +
         cfg.rarities.map(function (r) {
           return '<button type="button" class="mu-seg' + (state.tableRarity === r.id ? ' mu-active' : '') +
             '" data-r="' + r.id + '">' + r.label + '</button>';
@@ -3710,7 +3893,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     const collectPct = U.clamp(days / cfg.collectDays * 100, 0, 100);
     html += '<div class="mu-stats-line">' +
       '<span><b>' + index.nObs + '</b> obs.</span>' +
-      '<span><b>' + filled.length + '/' + rows.length + '</b> przedzialow</span>' +
+      '<span><b>' + filled.length + '/' + rows.length + '</b> przedziałów</span>' +
       '<span>najtaniej <b class="mu-hi">' + (isFinite(cheapest) ? U.gold(cheapest) : '-') + '</b>/pkt</span>' +
       '<span class="mu-progress-wrap" title="Zebrano ' + days + ' z ' + cfg.collectDays + ' zadeklarowanych dni zbierania danych">' +
         days + '/' + cfg.collectDays + ' dni<span class="mu-progress"><i style="width:' + collectPct + '%"></i></span>' +
@@ -3721,10 +3904,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
      * najwazniejsza informacja (brak bonusow bez celu) w jednej linii,
      * bez pogrubien/kolorow poza jednym akcentem na nazwie sekcji. */
     const target = currentTarget();
-    if (!target) {
-      html += '<p class="mu-subtitle">Bez celu: kolumna "Pkt" to wartosc bazowa, bez bonusow za ' +
-        'dopasowanie. Rozwin <b>Cel ulepszania</b> powyzej dla realnego kosztu.</p>';
-    }
+    html += '<p class="mu-subtitle">Kolumna "Pkt" z bonusami za dopasowanie do tego, co ulepszasz ' +
+      '(ustawienia z <b>Kalkulatora</b>).</p>';
 
     /* Calkowity koszt ulepszenia CELU (+0 -> +5) zalezy WYLACZNIE od
      * poziomu i rzadkosci tego celu (im wyzsza rzadkosc/poziom, tym wiecej
@@ -3734,13 +3915,12 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
      * to pokazuje realna, calkowita kwote. */
     if (target && target.rarity && target.lvl) {
       const totalPts = MU.upgrade.totalPointsCost(target.lvl, target.rarity, 0, 5);
-      const finalizeGold = MU.upgrade.finalizeGoldCost(target.lvl, target.rarity);
-      const finalizeEssence = MU.upgrade.finalizeEssenceCost(target.lvl);
       const fodderGold = isFinite(cheapest) ? cheapest * totalPts : NaN;
-      html += '<p class="mu-subtitle">Calkowicie +0&rarr;+5 (' + MU.cfg.rarityById(target.rarity).label +
-        ' lvl ' + target.lvl + '): <b>' + U.round(totalPts, 0) + '</b> pkt &middot; skladniki ' +
-        '<b>' + (isFinite(fodderGold) ? U.gold(fodderGold) : '-') + '</b> &middot; finalizacja ' +
-        '<b>' + U.gold(finalizeGold) + '</b> zlota + <b>' + finalizeEssence + '</b> esencji.</p>';
+      /* Bez oplaty za +5 i bez esencji - decyzja uzytkownika: koszt
+       * ulepszenia to tylko punkty x cena za punkt. */
+      html += '<p class="mu-subtitle">Całkowicie +0&rarr;+5 (' + MU.cfg.rarityById(target.rarity).label +
+        ' lvl ' + target.lvl + '): <b>' + U.round(totalPts, 0) + '</b> pkt &middot; składniki ' +
+        '<b>' + (isFinite(fodderGold) ? U.gold(fodderGold) : '-') + '</b>.</p>';
     }
 
     html += '<table class="mu-t"><thead><tr>' + COLS.map(function (c) {
@@ -3779,28 +3959,19 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     });
   }
 
-  function kpi(label, val) {
-    return '<div><span>' + U.escapeHtml(label) + '</span><b>' + U.escapeHtml(String(val)) + '</b></div>';
-  }
-
   function renderEmpty(body) {
     const d = MU.sniffer.diag.lastDom;
-    let hint = 'Otworz dom aukcyjny w grze i poprzegladaj listy - dodatek zapisuje cene ' +
-      'kazdej nowo zobaczonej oferty od razu, bez czekania na cokolwiek.';
+    let hint = 'Otwórz dom aukcyjny w grze i poprzeglądaj listy – dodatek zapisuje cenę ' +
+      'każdej nowo zobaczonej oferty od razu.';
     if (d) {
-      hint = 'Dodatek widzial dotad <b>' + d.covered + '</b>' +
+      hint = 'Dodatek widział dotąd <b>' + d.covered + '</b>' +
         (isFinite(d.total) ? ' z <b>' + d.total + '</b>' : '') +
-        ' pasujacych aukcji, ale zaden przedmiot jeszcze nie ma wystarczajacej liczby ' +
-        'obserwacji w wybranym filtrze (Rzadkosc skladnika / Kategoria / Min. pewnosc). ' +
-        'Dodatek trzyma liste podsunieta blisko dolu - wystarczy nawet drobny ruch ' +
-        'kolkiem myszy w oknie aukcji, zeby doladowac kolejna partie ofert (pelnego ' +
-        'automatycznego doladowania bez Twojego udzialu przegladarka nie pozwala zrobic). ' +
-        'Albo poluzuj filtry powyzej.';
+        ' pasujących aukcji, ale w wybranej kategorii i rzadkości nie ma jeszcze danych.';
     }
-    body.innerHTML = '<div class="mu-empty">' +
-      '<b>Brak danych - jeszcze.</b><br>' + hint + '<br><br>' +
-      'Zakladka <b>Zbieranie</b> pokazuje szczegoly (ile ofert dodatek widzial, ile ' +
-      'stron zaladowal).' +
+    body.innerHTML = avgInfoHtml(MU.cfg.get()) + '<div class="mu-empty">' +
+      '<b>Brak danych – jeszcze.</b><br>' + hint + '<br><br>' +
+      'Całą listę pobierzesz przyciskiem <b>Załaduj wszystkie strony</b> w zakładce ' +
+      '<b>Zbieranie</b>.' +
       '</div>';
   }
 
@@ -3824,7 +3995,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     { k: 'name', t: 'Przedmiot', f: function (r) { return U.escapeHtml(r.name); } },
     { k: 'category', t: 'Kat.', f: function (r) {
         return U.escapeHtml(MU.cfg.categoryById(r.category).label); } },
-    { k: 'rarity', t: 'Rzadkosc', f: function (r) {
+    { k: 'rarity', t: 'Rzadkość', f: function (r) {
         const x = MU.cfg.rarityById(r.rarity);
         return '<span style="color:' + x.color + '">' + U.escapeHtml(x.label) + '</span>'; } },
     { k: 'lvl', t: 'lvl', f: function (r) { return U.round(r.lvl, 0); } },
@@ -3854,28 +4025,39 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     lastRowsItems = rows;
 
     const SHOWN_MAX = 400;
-    const cheapestLive = rows.length ? rows[0].costPerPoint : NaN;
+    /* Minimum, nie rows[0] - po sortowaniu po innej kolumnie pierwszy wiersz
+     * nie jest najtanszy. */
+    const cheapestLive = rows.reduce(function (m, r) { return r.costPerPoint < m ? r.costPerPoint : m; }, Infinity);
+    /* Budzet z Kalkulatora: oferta sie oplaca, gdy jej koszt za punkt (juz z
+     * bonusami za dopasowanie do celu) nie przekracza max ceny za punkt. */
+    const plan = calcPlan();
+    const maxPP = plan ? Math.floor(plan.p.maxPerPoint) : NaN;
+    const fits = function (r) { return r.costPerPoint <= maxPP; };
+    const nFit = isFinite(maxPP) ? rows.filter(fits).length : 0;
 
     let html = '<div class="mu-stats-line">' +
       '<span><b>' + rows.length + '</b> ofert (sesja)</span>' +
       '<span>pokazano <b>' + Math.min(rows.length, SHOWN_MAX) + '</b></span>' +
+      (isFinite(maxPP) ? '<span><b class="mu-pos">' + nFit + '</b> w budżecie</span>' : '') +
       '<span>najtaniej <b class="mu-hi">' + (isFinite(cheapestLive) ? U.gold(cheapestLive) : '-') + '</b>/pkt</span>' +
       '</div>';
 
-    html += '<p class="mu-subtitle">Wszystkie oferty zaobserwowane od otwarcia gry (nie tylko ' +
-      'biezaco widoczna kategoria w oknie aukcji) - nie historia. Srednie z historii sa w ' +
-      'zakladce <b>Tabela</b>.</p>';
+    html += '<p class="mu-subtitle">' + (isFinite(maxPP)
+        ? 'Na zielono oferty mieszczące się w budżecie z Kalkulatora – koszt/pkt do <b>' + calcNum(maxPP) +
+          '</b> (bonusy już wliczone).'
+        : 'Wpisz poziom i budżet w <b>Kalkulatorze</b>, a oferty mieszczące się w budżecie podświetlą się na zielono.') +
+      ' Lista to wszystkie oferty widziane od otwarcia gry, nie historia – średnie są w zakładce <b>Średnie ceny</b>.</p>';
 
     if (!rows.length) {
-      html += '<div class="mu-empty">Brak jeszcze zaobserwowanych ofert. Otworz dom aukcyjny ' +
-        'w grze i poprzegladaj kategorie - dodatek zapamieta kazda widziana oferte az do ' +
-        'przeladowania strony.</div>';
+      html += '<div class="mu-empty">Brak jeszcze zaobserwowanych ofert. Otwórz dom aukcyjny ' +
+        'w grze i poprzeglądaj kategorie – dodatek zapamięta każdą widzianą ofertę aż do ' +
+        'przeładowania strony.</div>';
       body.innerHTML = html;
       return;
     }
 
     if (rows.length > SHOWN_MAX) {
-      html += '<div class="mu-warn">Pokazano ' + SHOWN_MAX + ' z ' + rows.length + ' najtanszych - reszta ukryta.</div>';
+      html += '<div class="mu-warn">Pokazano ' + SHOWN_MAX + ' z ' + rows.length + ' najtańszych – reszta ukryta.</div>';
     }
 
     html += '<table class="mu-t"><thead><tr>' + ITEM_COLS.map(function (c) {
@@ -3885,7 +4067,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
     }).join('') + '</tr></thead><tbody>';
 
     for (const r of rows.slice(0, SHOWN_MAX)) {
-      html += '<tr>' + ITEM_COLS.map(function (c) {
+      html += '<tr' + (fits(r) ? ' class="mu-ok"' : '') + '>' + ITEM_COLS.map(function (c) {
         const cls = c.cls ? c.cls(r) : '';
         return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + c.f(r) + '</td>';
       }).join('') + '</tr>';
@@ -3904,49 +4086,22 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
 
   /* --- zakladka: zbieranie -------------------------------------------- */
 
+  /* Czy zwijana sekcja "Dane" jest rozwinieta - zapamietane poza renderem,
+   * bo zakladka przerysowuje sie przy kazdej stronie ladowania (inaczej
+   * sekcja zwijalaby sie sama co chwile). */
+  let collectDataOpen = false;
+
   function renderCollect(body) {
     const cfg = MU.cfg.get();
-    const c = MU.lifecycle.state.counters;
     const d = MU.sniffer.diag;
-    const days = index && index.firstObsTs
-      ? U.round((Date.now() - index.firstObsTs) / U.DAY_MS, 1) : 0;
 
+    /* Uklad (uwaga uzytkownika o czytelnosci): najpierw to, czego sie uzywa -
+     * doladowanie listy. Techniczne liczniki (sprzedane/wygasle, trafienia,
+     * magazyn) usuniete - nieprzydatne dla gracza (uwaga uzytkownika). */
     body.innerHTML =
-      '<div class="mu-kpi">' +
-        kpi('Sledzone aukcje', c.tracked) +
-        kpi('Sprzedane', c.sold) +
-        kpi('Wygasle', c.expired) +
-        kpi('Niejednoznaczne', c.ambiguous) +
-        kpi('Dni zbierania', days) +
-        kpi('Magazyn', MU.store.mode) +
-      '</div>' +
-      '<p class="mu-note">Dodatek liczy srednia z <b>biezacych ofert</b> ("kup teraz") - ' +
-      'kazda nowo zobaczona aukcja zapisuje sie do proby od razu, raz. Skrajne ceny ' +
-      '(pranie zlota, pomylki, przecenione/przewartosciowane oferty) sa odsiewane ' +
-      'statystycznie (filtr MAD), a nie przez czekanie na sprzedaz.</p>' +
-      '<h4 class="mu-sec">Sniffer</h4>' +
-      '<div class="mu-kpi">' +
-        kpi('Przeskanowanych odp.', d.scanned) +
-        kpi('Trafien', d.hits) +
-        kpi('Ostatnie trafienie', d.lastHitAt ?
-          new Date(d.lastHitAt).toLocaleTimeString() : 'brak') +
-      '</div>' +
-      (d.hits === 0 ? '<div class="mu-warn">Dodatek nie zobaczyl jeszcze zadnych danych ' +
-        'aukcyjnych. Otworz dom aukcyjny w grze i przewin liste.</div>' : '') +
-      (d.lastDom ? (function () {
-        const status = d.lastDom.complete
-          ? '<span class="mu-pos">Pobrano komplet listy dla tego filtra.</span>'
-          : '<span class="mu-mut">To jeszcze nie komplet - kliknij "Zaladuj wszystkie strony" ' +
-            'ponizej albo przewin liste w oknie aukcji.</span>';
-        return '<div class="mu-note">' +
-          'Biezaca strona: <b>' + d.lastDom.allCount + '</b> wierszy. Zobaczonych dotad: <b>' +
-          d.lastDom.covered + '</b>' +
-          (d.lastDom.total === null ? '' : ' z <b>' + d.lastDom.total + '</b>') +
-          ' pasujacych aukcji (' + new Date(d.lastDom.at).toLocaleTimeString() + '). ' +
-          status +
-          '</div>';
-      })() : '') +
-      '<h4 class="mu-sec">Doladowanie listy</h4>' +
+      (d.hits === 0 ? '<div class="mu-warn">Dodatek nie zobaczył jeszcze żadnych danych ' +
+        'aukcyjnych. Otwórz dom aukcyjny w grze i wybierz kategorię.</div>' : '') +
+      '<h4 class="mu-sec">Doładowanie listy</h4>' +
       (function () {
         /* Jedyne miejsce, z ktorego dodatek cokolwiek wysyla do gry - i to
          * tylko po kliknieciu, patrz MU.sniffer.loadAllPages. */
@@ -3958,31 +4113,66 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
         };
         let line = '';
         if (p.running) {
-          line = '<span class="mu-mut">Laduje strone <b>' + (p.page + 1) + '</b> z <b>' + p.pages +
-            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert' +
-            (p.avgMs ? ', srednio <b>' + (p.avgMs / 1000).toFixed(2) + ' s</b>/strone (ostatnia ' +
+          line = '<span class="mu-mut">Ładuję stronę <b>' + (p.page + 1) + '</b> z <b>' + p.pages +
+            '</b> – w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert' +
+            (p.avgMs ? ', średnio <b>' + (p.avgMs / 1000).toFixed(2) + ' s</b>/stronę (ostatnia ' +
               (p.lastMs / 1000).toFixed(2) + ' s)' : '') +
             '. Lista w oknie gry jest na ten czas ukryta.</span>';
         } else if (p.message) {
           line = '<span class="' + (p.status === 'done' ? 'mu-pos' : 'mu-mut') + '">' +
             esc(p.message) + '</span>';
         }
-        return '<p class="mu-note">Prosi gre o kolejne strony dokladnie tej listy, ktora masz ' +
-          'otwarta w oknie aukcji - tak samo jak przy przewijaniu, strona po stronie, tak ' +
-          'szybko, jak pozwala gra. Nic nie kupuje i nie licytuje. ' + line + '</p>' +
-          (p.running
-            ? '<button class="mu-btn" id="mu-load-stop">Zatrzymaj</button>'
-            : '<button class="mu-btn" id="mu-load-all">Zaladuj wszystkie strony</button>');
+        /* Wznawianie: po przerwaniu (zamkniecie okna, Zatrzymaj...) i powrocie
+         * do tej samej listy - "Wznow od strony X" zamiast ladowania od nowa. */
+        const resume = MU.sniffer.getResumeInfo();
+        let buttons = '<button class="mu-btn" id="mu-load-all">Załaduj wszystkie strony</button>';
+        if (p.running) buttons = '<button class="mu-btn" id="mu-load-stop">Zatrzymaj</button>';
+        else if (resume && resume.matches) {
+          buttons = '<button class="mu-btn" id="mu-load-resume">Wznów od strony ' + (resume.page + 1) +
+            ' z ' + resume.pages + '</button> <button class="mu-btn" id="mu-load-all">Od początku</button>';
+        }
+        const resumeHint = !p.running && resume && !resume.matches
+          ? '<p class="mu-status mu-mut">Przerwane ładowanie (strona ' + resume.page + ' z ' + resume.pages +
+            '). Otwórz w oknie aukcji tę samą listę (te same filtry i kategoria), żeby wznowić.</p>'
+          : '';
+        /* Ramka z Max. cena jest tylko w Kalkulatorze - tu byla ta sama (uwaga
+         * uzytkownika). Opis mowi wprost, CO sie wczytuje: otwarta lista z
+         * filtrami z gry, nie caly dom aukcyjny. */
+        return buttons +
+          (line ? '<p class="mu-status">' + line + '</p>' : '') + resumeHint +
+          '<p class="mu-subtitle" style="margin-top:8px">Wczytuje wszystkie strony listy otwartej teraz w oknie ' +
+          'aukcji – z filtrami ustawionymi w grze, więc najpierw wpisz tam Max. cenę z <b>Kalkulatora</b>. ' +
+          'Nic nie kupuje i nie licytuje.</p>';
       })() +
-      '<h4 class="mu-sec">Dane</h4>' +
-      '<button class="mu-btn" id="mu-exp">Eksport JSON</button> ' +
-      '<button class="mu-btn" id="mu-imp">Import JSON</button> ' +
-      '<button class="mu-btn" id="mu-purge">Usun starsze niz ' + cfg.stats.retentionDays + ' dni</button> ' +
-      '<button class="mu-btn" id="mu-wipe">Wyczysc wszystko</button>' +
+      (d.lastDom ? (function () {
+        const status = d.lastDom.complete
+          ? '<span class="mu-pos">Pobrano komplet listy dla tego filtra.</span>'
+          : '<span class="mu-mut">To jeszcze nie komplet.</span>';
+        return '<p class="mu-subtitle">W oknie gry <b>' + d.lastDom.allCount + '</b> wierszy, zobaczonych ' +
+          'dotąd <b>' + d.lastDom.covered + '</b>' +
+          (d.lastDom.total === null ? '' : ' z <b>' + d.lastDom.total + '</b>') +
+          ' pasujących aukcji (' + new Date(d.lastDom.at).toLocaleTimeString() + '). ' + status + '</p>';
+      })() : '') +
+      /* Dane (eksport/import/czyszczenie) tez zwiniete - uzywane rzadko
+       * (uwaga uzytkownika). */
+      '<details class="mu-target" id="mu-data-details"' + (collectDataOpen ? ' open' : '') + '>' +
+        '<summary>Dane</summary>' +
+        '<div style="padding:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+          '<button class="mu-btn" id="mu-exp">Eksport JSON</button>' +
+          '<button class="mu-btn" id="mu-imp">Import JSON</button>' +
+          '<button class="mu-btn" id="mu-purge">Usuń starsze niż ' + cfg.stats.retentionDays + ' dni</button>' +
+          '<button class="mu-btn" id="mu-wipe">Wyczyść wszystko</button>' +
+        '</div>' +
+      '</details>' +
       '<input type="file" id="mu-file" accept="application/json" style="display:none">';
+
+    const dataDetails = body.querySelector('#mu-data-details');
+    dataDetails.addEventListener('toggle', function () { collectDataOpen = dataDetails.open; });
 
     const loadAll = body.querySelector('#mu-load-all');
     if (loadAll) loadAll.onclick = function () { MU.sniffer.loadAllPages(); };
+    const loadResume = body.querySelector('#mu-load-resume');
+    if (loadResume) loadResume.onclick = function () { MU.sniffer.loadAllPages({ resume: true }); };
     const loadStop = body.querySelector('#mu-load-stop');
     if (loadStop) loadStop.onclick = function () { MU.sniffer.stopLoadAll(); };
     body.querySelector('#mu-exp').onclick = function () {
@@ -4006,16 +4196,16 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
             alert('Zaimportowano ' + n + ' obserwacji.');
             refresh();
           });
-        } catch (e) { alert('Nieprawidlowy plik JSON.'); }
+        } catch (e) { alert('Nieprawidłowy plik JSON.'); }
       });
     };
     body.querySelector('#mu-purge').onclick = function () {
       MU.store.purgeOld(cfg.stats.retentionDays).then(function (n) {
-        alert('Usunieto ' + n + ' rekordow.'); refresh();
+        alert('Usunięto ' + n + ' rekordów.'); refresh();
       });
     };
     body.querySelector('#mu-wipe').onclick = function () {
-      if (confirm('Usunac wszystkie zebrane obserwacje (i baze sledzonych aukcji)? Tej operacji nie da sie cofnac.')) {
+      if (confirm('Usunąć wszystkie zebrane obserwacje (i bazę śledzonych aukcji)? Tej operacji nie da się cofnąć.')) {
         MU.store.clearAll().then(function () {
           /* Liczniki w MU.lifecycle sa czysto in-memory (licza od startu
            * sesji, nie z bazy) - bez tego dalej pokazywalyby stare
@@ -4049,7 +4239,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
         r.empty ? '1' : '0',
       ].join(';'));
     }
-    downloadCsv(lines, 'ulepy-tabela.csv');
+    downloadCsv(lines, 'ulepy-srednie-ceny.csv');
   }
 
   function exportCsvItems() {
@@ -4083,14 +4273,185 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
 
   /* --- render --------------------------------------------------------- */
 
+  /* --- zakladka: kalkulator ------------------------------------------ */
+
+  /* Stan kalkulatora = cel ulepszania dla calego panelu (Przedmioty i
+   * Srednie ceny licza bonusy wzgledem niego - patrz currentTarget).
+   * Zapisywany w localStorage, zeby po przeladowaniu gry cel nie wracal po
+   * cichu do domyslnej legendy. Samo liczenie jest w MU.upgrade.budgetPlan:
+   * tylko punkty, bez oplaty za +5 i bez esencji (decyzja uzytkownika).
+   * Grupa nie zmienia kafelkow (bonus +25% jest ten sam dla kazdej grupy) -
+   * decyduje tylko, KTORE oferty w Przedmiotach go dostaja. */
+  const CALC_RARITIES = [
+    { id: 'unikat', label: 'Unikat' }, { id: 'heroik', label: 'Heroik' }, { id: 'legenda', label: 'Legenda' },
+  ];
+  const CALC_KEY = 'MU_CALC_v1';
+  const calc = (function () {
+    const c = { rarity: 'legenda', group: '', from: 0, lvl: '', budget: '' };
+    try {
+      const s = JSON.parse(localStorage.getItem(CALC_KEY) || 'null') || {};
+      if (CALC_RARITIES.some(function (r) { return r.id === s.rarity; })) c.rarity = s.rarity;
+      if (GROUP_ORDER.indexOf(s.group) >= 0) c.group = s.group;
+      if (s.from >= 0 && s.from <= 4) c.from = s.from | 0;
+      if (typeof s.lvl === 'string') c.lvl = s.lvl;
+      if (typeof s.budget === 'string') c.budget = s.budget;
+    } catch (e) { /* brak localStorage - zostaja domyslne */ }
+    return c;
+  })();
+  function saveCalc() {
+    try { localStorage.setItem(CALC_KEY, JSON.stringify(calc)); } catch (e) {}
+  }
+
+  /* Liczby ZAWSZE z odstepem co 3 cyfry (takze "1 684") - toLocaleString('pl-PL')
+   * nie grupuje liczb 4-cyfrowych, przez co obok siebie stalo "1684" i
+   * "2 968 000" (uwaga uzytkownika o niespojnym zapisie). */
+  function calcNum(v) {
+    return String(Math.floor(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  /* Wynik kalkulatora dla aktualnie wpisanych danych albo null. Uzywany
+   * tez w zakladce Zbieranie (podpowiedz, ile wpisac w "Max. cena"). */
+  function calcPlan() {
+    const lvl = parseInt(calc.lvl, 10);
+    const parsed = MU.normalize.parseGoldText(calc.budget);
+    const budget = parsed && !parsed.hasPremium ? parsed.gold : NaN;
+    if (!(lvl > 0) || !(budget > 0)) return null;
+    const p = MU.upgrade.budgetPlan(lvl, calc.rarity, calc.from, budget);
+    if (!p) return null;
+    const brackets = MU.cfg.get().brackets;
+    const maxLvl = brackets.length ? brackets[brackets.length - 1][1] : 300;
+    const mpp = Math.floor(p.maxPerPoint);
+    /* Osobno dla unikatow i heroikow: heroikow tak tanio nikt nie sprzedaje
+     * (uwaga uzytkownika), wiec zalecany pulap Max. ceny to pulap unikatu -
+     * inaczej gra wysylalaby wszystkie unikaty az do pulapu heroika. */
+    return { lvl: lvl, budget: budget, p: p, caps: {
+      unikat: MU.upgrade.maxOfferPrice(mpp, calc.rarity, maxLvl, 'unikat'),
+      heroik: MU.upgrade.maxOfferPrice(mpp, calc.rarity, maxLvl, 'heroik'),
+      lvl: maxLvl,
+    } };
+  }
+
+  function calcOutHtml() {
+    const c = calcPlan();
+    if (!c) {
+      return '<p class="mu-subtitle">Wpisz poziom przedmiotu i budżet, np. <b>6g</b>, <b>500m</b> albo <b>750k</b>.</p>';
+    }
+    const p = c.p;
+    /* Wynik jako dwa duze kafelki zamiast malej tabeli - najwazniejsze
+     * liczby od razu widoczne (uwaga uzytkownika o czytelnosci). */
+    return '<p class="mu-calc-line">' + MU.cfg.rarityById(calc.rarity).label + ' lvl ' + c.lvl +
+        ': +' + calc.from + ' &rarr; +5 &middot; potrzeba <b>' + calcNum(p.points) + '</b> pkt &middot; ' +
+        'budżet <b>' + calcNum(c.budget) + '</b> (' + U.gold(c.budget) + ')</p>' +
+      '<div class="mu-tiles">' +
+        '<div class="mu-tile"><span class="mu-tile-lbl">Max za punkt</span>' +
+          '<span class="mu-tile-val">' + calcNum(p.maxPerPoint) + '</span>' +
+          '</div>' +
+        '<div class="mu-tile"><span class="mu-tile-lbl">Z tej samej grupy (+25%)</span>' +
+          '<span class="mu-tile-val">' + calcNum(p.groupMaxPerPoint) + '</span>' +
+          '</div>' +
+        /* Ulepszanie heroika heroikami (unikatu unikatami): bonus +200% za
+         * te sama rzadkosc - tego brakowalo (uwaga uzytkownika). */
+        (calc.rarity === 'heroik' || calc.rarity === 'unikat' ? (function () {
+          const who = calc.rarity === 'heroik' ? 'Heroikiem' : 'Unikatem';
+          return '<div class="mu-tile"><span class="mu-tile-lbl">' + who + ' (+200%)</span>' +
+              '<span class="mu-tile-val">' + calcNum(p.sameRarityMaxPerPoint) + '</span>' +
+              '</div>' +
+            '<div class="mu-tile"><span class="mu-tile-lbl">' + who + ' z tej samej grupy (+225%)</span>' +
+              '<span class="mu-tile-val">' + calcNum(p.sameRarityGroupMaxPerPoint) + '</span>' +
+              '</div>';
+        })() : '') +
+      '</div>' +
+      offerCapCalloutHtml(c.caps, calc.rarity) +
+      '<p class="mu-subtitle" style="margin:0">Liczone tylko z punktów – bez opłaty za +5 i bez esencji.</p>';
+  }
+
+  /* Podpowiedz "Max. cena" - wyrozniona zlota ramka (uwaga uzytkownika: w
+   * szarej ramce byla niewidoczna), tylko w Kalkulatorze. Pod kazda cena
+   * krotkie wyjasnienie (uwaga uzytkownika: bez niego nie bylo wiadomo, co
+   * i jak), ale bez dawnych bledow: "Rzadkosc Heroiczne" wprost jako filtr
+   * w grze, nie wybor w Kalkulatorze, i bez "tak tanie heroiki sie nie
+   * trafiaja" - przy wiekszym budzecie to nieprawda. Dwie ceny, bo jedna nie
+   * wystarczy: z pulapem unikatu gra nie wysle drozszych, a wciaz oplacalnych
+   * heroikow. */
+  function offerCapCalloutHtml(caps, rarity) {
+    const row = function (who, v, why) {
+      return '<div class="mu-callout-row">' + who + ': <span class="mu-callout-val">' + calcNum(v) + '</span> ' +
+        '<span class="mu-callout-sub">(' + U.gold(v) + ')</span>' +
+        '<div class="mu-callout-sub">' + why + '</div></div>';
+    };
+    /* Stopka: ceny to GORNA granica dla najlepszego skladnika - nizszy
+     * poziom daje mniej punktow (uwaga uzytkownika: heroik 20 lvl za 20m
+     * miesci sie w pulapie, a wcale sie nie oplaca). O konkretnej ofercie
+     * rozstrzyga zielone podswietlenie w Przedmiotach. */
+    return '<div class="mu-callout"><span class="mu-callout-lbl">Ustaw w oknie aukcji Max. cenę</span>' +
+      row('Unikaty', caps.unikat, 'Droższe unikaty i tak się nie opłacają – z tą ceną gra ich w ogóle nie ' +
+        'wyśle, więc ładowanie będzie dużo krótsze.') +
+      row('Heroiki', caps.heroik, (rarity === 'heroik' ? 'Z bonusem +200% za tę samą rzadkość. ' : '') +
+        'Żeby je sprawdzić, osobno ustaw w oknie aukcji rzadkość Heroiczne i tę cenę (to filtr w grze, nie ' +
+        'wybór w Kalkulatorze). Jeśli na twoim świecie tak tanich heroików nie ma, pomiń to – oszczędzisz ' +
+        'jedno ładowanie.') +
+      '<div class="mu-callout-sub mu-callout-foot">To górne granice, liczone dla najlepszego składnika (' +
+        caps.lvl + ' lvl, ta sama grupa). Niższy poziom daje mniej punktów, więc np. heroik na 20 lvl opłaca ' +
+        'się dużo taniej. Czy konkretna oferta się opłaca, pokazuje na zielono zakładka <b>Przedmioty</b>.</div>' +
+      '</div>';
+  }
+
+  function renderCalc(body) {
+    function seg(id, items, current) {
+      return '<div class="mu-seg-row" id="' + id + '">' + items.map(function (it) {
+        return '<button type="button" class="mu-seg' + (String(current) === String(it.id) ? ' mu-active' : '') +
+          '" data-v="' + it.id + '">' + it.label + '</button>';
+      }).join('') + '</div>';
+    }
+    /* Formularz jako siatka: etykiety w jednej kolumnie, przyciski i pola
+     * rowno pod soba (uwaga uzytkownika - rozjechane rzedy). */
+    body.innerHTML =
+      '<div class="mu-calc-grid">' +
+        '<span class="mu-seg-lbl">Rzadkość</span>' + seg('mu-calc-rar', CALC_RARITIES, calc.rarity) +
+        '<span class="mu-seg-lbl">Obecne ulepszenie</span>' +
+          seg('mu-calc-from', [0, 1, 2, 3, 4].map(function (k) { return { id: k, label: '+' + k }; }), calc.from) +
+        '<span class="mu-seg-lbl" title="Grupa przedmiotu, który ulepszasz – składniki z tej samej grupy dostają +25% punktów (liczone w Przedmiotach)">Grupa</span>' +
+          seg('mu-calc-grp', GROUP_ORDER.map(function (g) { return { id: g, label: GROUP_LABELS[g] }; }), calc.group) +
+        '<label class="mu-seg-lbl" for="mu-calc-lvl">Poziom</label>' +
+        '<div class="mu-calc-inputs"><input id="mu-calc-lvl" type="number" min="1" max="300" ' +
+          'placeholder="np. 244" value="' + U.escapeHtml(calc.lvl) + '">' +
+          '<label class="mu-seg-lbl" for="mu-calc-budget">Budżet</label><input id="mu-calc-budget" type="text" ' +
+          'placeholder="np. 6g" value="' + U.escapeHtml(calc.budget) + '"></div>' +
+      '</div>' +
+      (calc.group ? '' : '<p class="mu-subtitle">Wybierz <b>grupę</b> przedmiotu – wtedy Przedmioty doliczą +25% ' +
+        'składnikom z tej samej grupy.</p>') +
+      '<div id="mu-calc-out"></div>';
+
+    body.querySelectorAll('#mu-calc-rar .mu-seg').forEach(function (b) {
+      b.addEventListener('click', function () { calc.rarity = b.getAttribute('data-v'); saveCalc(); renderCalc(body); });
+    });
+    body.querySelectorAll('#mu-calc-from .mu-seg').forEach(function (b) {
+      b.addEventListener('click', function () { calc.from = parseInt(b.getAttribute('data-v'), 10); saveCalc(); renderCalc(body); });
+    });
+    body.querySelectorAll('#mu-calc-grp .mu-seg').forEach(function (b) {
+      b.addEventListener('click', function () { calc.group = b.getAttribute('data-v'); saveCalc(); renderCalc(body); });
+    });
+    const out = body.querySelector('#mu-calc-out');
+    const lvlIn = body.querySelector('#mu-calc-lvl');
+    const budIn = body.querySelector('#mu-calc-budget');
+    function update() { calc.lvl = lvlIn.value; calc.budget = budIn.value; saveCalc(); out.innerHTML = calcOutHtml(); }
+    lvlIn.addEventListener('input', update);
+    budIn.addEventListener('input', update);
+    update();
+  }
+
   function render(bodyOnly) {
     if (!panel) return;
     if (!bodyOnly) renderBar();
     const body = panel.querySelector('#mu-body');
-    const sub = panel.querySelector('#mu-sub');
-    sub.textContent = index ? (index.nObs + ' obserwacji') : '';
     if (activeTab === 'tabela') renderTable(body);
     else if (activeTab === 'przedmioty') renderItems(body);
+    /* Kalkulator nie zalezy od zebranych danych - raz narysowanego
+     * formularza nie przerysowuje ZADNE odswiezenie (takze pelne, np. po
+     * otwarciu panelu - konczy sie asynchronicznie i w lokalnym tescie
+     * wyrzucalo kursor z pola, gubiac wpisywane cyfry). Rysujemy go tylko,
+     * gdy go jeszcze nie ma (wejscie na zakladke). */
+    else if (activeTab === 'kalkulator') { if (!body.querySelector('#mu-calc-out')) renderCalc(body); }
     else renderCollect(body);
   }
 

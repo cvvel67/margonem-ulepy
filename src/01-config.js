@@ -15,7 +15,9 @@ MU.cfg = (function () {
    * wiec bez bumpa stara lista slow kluczowych zostalaby u kazdego. */
   /* v10: strzaly (cl 29) dopisane do kategorii "bron" - ta sama przyczyna
    * bumpa co wyzej (u kogos z v1.1.0 zostalaby lista bez strzal). */
-  const LS_KEY = 'MU_CFG_v10';
+  /* v11: polskie znaki w etykietach kategorii (Broń, Hełm...) - ta sama
+   * przyczyna bumpa co wyzej. */
+  const LS_KEY = 'MU_CFG_v11';
 
   /* Przedzialy poziomowe: pelna, rowna siatka co 10 lvl, 21-30 .. 291-300.
    * Przedmioty ponizej 21 lub powyzej 300 trafiaja do wspolnego "?" -
@@ -56,7 +58,7 @@ MU.cfg = (function () {
    * kolczan - LICZA SIE JAKO BRON (potwierdzone przez uzytkownika), wiec
    * naleza do kategorii "bron", NIE do wykluczonej zakladki "Inne". */
   const defaultCategories = [
-    { id: 'bron', label: 'Bron', group: 'bronie', cl: ['weapon', '4', 'magic', '29'], kw: [
+    { id: 'bron', label: 'Broń', group: 'bronie', cl: ['weapon', '4', 'magic', '29'], kw: [
       'miecz', 'topor', 'topór', 'mlot', 'młot', 'sztylet', 'kostur',
       'rozdzka', 'różdżka', 'luk', 'łuk', 'kusza',
       'wlocznia', 'włócznia', 'kosa', 'bulawa', 'buława',
@@ -70,25 +72,25 @@ MU.cfg = (function () {
      * je od bron glownej wylacznie slot/cl, nie nazwa). */
     { id: 'orb', label: 'Orb', group: 'bronie', cl: ['7'], kw: [
       'orb', 'kula magiczna', 'sfera'] },
-    { id: 'bron_pomocnicza', label: 'Bron pomocnicza', group: 'bronie', cl: ['5'], kw: [
+    { id: 'bron_pomocnicza', label: 'Broń pomocnicza', group: 'bronie', cl: ['5'], kw: [
       'bron pomocnicza', 'broń pomocnicza', 'sztylet pomocniczy'] },
     { id: 'pancerz', label: 'Pancerz', group: 'pancerz', cl: ['8'], kw: [
       'pancerz', 'zbroja', 'kolczuga', 'napiersnik', 'napierśnik',
       'kirys', 'szata', 'tunika', 'kaftan', 'plaszcz', 'płaszcz',
       'karacena', 'brygantyna', 'bluza', 'koszula', 'suknia', 'kubrak'] },
-    { id: 'helm', label: 'Helm', group: 'pancerz', cl: ['9'], kw: [
+    { id: 'helm', label: 'Hełm', group: 'pancerz', cl: ['9'], kw: [
       'helm', 'hełm', 'kaptur', 'czapka', 'korona', 'diadem',
       'przylbica', 'przyłbica', 'kapelusz', 'opaska', 'maska',
       'czepiec', 'misiurka', 'szyszak'] },
     { id: 'buty', label: 'Buty', group: 'pancerz', cl: ['10'], kw: [
       'buty', 'trzewiki', 'sandaly', 'sandały', 'cizmy', 'ciżmy',
       'obuwie', 'kalosze', 'sabaty', 'nagolenniki', 'onuce', 'botki'] },
-    { id: 'rekawice', label: 'Rekawice', group: 'pancerz', cl: ['11'], kw: [
+    { id: 'rekawice', label: 'Rękawice', group: 'pancerz', cl: ['11'], kw: [
       'rekawice', 'rękawice', 'rekawiczki', 'rękawiczki',
       'karwasze', 'nareczaki', 'naręczaki'] },
     { id: 'tarcza', label: 'Tarcza', group: 'pancerz', cl: ['14'], kw: [
       'tarcza', 'puklerz', 'pawez', 'pawęż'] },
-    { id: 'pierscien', label: 'Pierscien', group: 'bizuteria', cl: ['12'], kw: [
+    { id: 'pierscien', label: 'Pierścień', group: 'bizuteria', cl: ['12'], kw: [
       'pierscien', 'pierścien', 'pierścień', 'sygnet',
       'obraczka', 'obrączka'] },
     { id: 'naszyjnik', label: 'Naszyjnik', group: 'bizuteria', cl: ['13'], kw: [

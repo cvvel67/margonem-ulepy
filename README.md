@@ -28,24 +28,38 @@ sensowna miara opłacalności to:
 koszt_za_punkt = cena_z_aukcji / efektywne_punkty_z_poświęcenia
 ```
 
-Im niżej, tym lepsza okazja. Panel ma trzy zakładki:
+Im niżej, tym lepsza okazja. Panel ma cztery zakładki:
 
-- **Tabela** — ranking posortowany po koszcie za punkt, osobno dla
-  każdej kombinacji grupa zasobu (Bronie/Pancerze/Biżuteria) × przedział
-  poziomowy × rzadkość (Unikat/Heroik), zbudowany z historycznych,
-  uśrednionych obserwacji cenowych.
 - **Przedmioty** — widok bieżący i **sesyjny**: każda oferta, jaką
   dodatek zaobserwował od załadowania strony (nie tylko z aktualnie
   wybranej w grze kategorii), bez uśredniania, jeden wiersz = jedna
-  realna oferta.
-- **Zbieranie** — status zbierania danych w tle (ile ofert widziano,
-  ile aukcji sprzedano/wygasło, stan pokrycia paginacji).
+  realna oferta. Koszt za punkt liczony jest z bonusami względem tego,
+  co ustawisz w Kalkulatorze, a oferty mieszczące się w budżecie są
+  podświetlone na zielono.
+- **Kalkulator** — wpisujesz rzadkość, grupę, poziom i obecne ulepszenie
+  przedmiotu, który chcesz wbić na +5, oraz budżet (np. „6g”, „500m”).
+  Dostajesz liczbę potrzebnych punktów i maksymalną cenę za punkt, przy
+  której zmieścisz się w budżecie — także dla składników z tej samej
+  grupy (+25% punktów), a przy ulepszaniu heroika lub unikatu także dla
+  składników tej samej rzadkości (+200%, razem z grupą +225%). Podpowiada
+  też, ile wpisać w pole **Max. cena**
+  w oknie aukcji — droższe oferty i tak się nie opłacą, a z tym filtrem
+  gra ich w ogóle nie wysyła, więc ładowanie listy jest dużo krótsze.
+  Liczone tylko z punktów, bez opłaty za +5 i bez esencji.
+- **Zbieranie** — doładowanie całej listy aukcji (Załaduj wszystkie
+  strony, wznawianie po przerwaniu), stan pokrycia listy oraz dane
+  (eksport, import, czyszczenie).
+- **Średnie ceny** — zbierane w tle średnie ceny z domu aukcyjnego (do
+  60 dni, świeższe ważą więcej): dla wybranej grupy (Bronie/Pancerze/
+  Biżuteria) i rzadkości (Unikat/Heroik) typowa cena i koszt za punkt
+  w każdym przedziale poziomów. To podgląd rynku — do kupowania służy
+  zakładka Przedmioty.
 
-Opcjonalnie można wskazać **cel ulepszania** (rzadkość i grupę
-przedmiotu, który faktycznie ulepszasz, zwijana sekcja "Cel ulepszania"
-nad tabelą) — wtedy dodatek dolicza bonusy punktowe za dopasowanie
-składnika (patrz niżej), pokazując realny, efektywny koszt zamiast
-wartości bazowej.
+**Cel ulepszania** (rzadkość, grupa i poziom przedmiotu, który faktycznie
+ulepszasz) ustawiasz w jednym miejscu — w Kalkulatorze; zapamiętuje się
+między sesjami. Przedmioty i Średnie ceny doliczają względem niego bonusy
+punktowe za dopasowanie składnika (patrz niżej), pokazując realny,
+efektywny koszt zamiast wartości bazowej.
 
 ## Mechanizm gry (realny, nie przybliżony)
 
@@ -178,6 +192,7 @@ node build-min.mjs       # przebuduj dist/margonem-ulepy.min.user.js (do publika
 node test/run.mjs        # testy jednostkowe
 node test/qa-stress.mjs  # testy wytrzymałościowe
 node test/verify-min.mjs # weryfikacja zaciemnionego bundla
+node dev/serve.mjs       # podgląd UI bez gry: http://localhost:8766 (symulator aukcji: /sim.html)
 ```
 
 `build-min.mjs` wymaga jednorazowo `npx terser` (pobierane na żądanie,
