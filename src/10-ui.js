@@ -181,6 +181,7 @@ table.mu-t tr:hover td{background:rgba(255,255,255,.06)}
  * jedyna czesc danych z akcentem zlota (hierarchia wizualna: reszta
  * tabeli jest neutralnie biala/szara). */
 table.mu-t td.mu-hi{color:#f0d090;font-weight:700}
+.auction-window.mu-pager-running .auction-table tr{display:none}
 /* Pusty przedzial: zamiast myslnika powtorzonego w kazdej komorce (szum
  * wizualny), caly wiersz jest wygaszony, a komorki poza pierwsza (nazwa
  * przedzialu) sa po prostu puste. */
@@ -964,7 +965,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
         let line = '';
         if (p.running) {
           line = '<span class="mu-mut">Laduje strone <b>' + (p.page + 1) + '</b> z <b>' + p.pages +
-            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert.</span>';
+            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert' +
+            (p.avgMs ? ', srednio <b>' + (p.avgMs / 1000).toFixed(2) + ' s</b>/strone (ostatnia ' +
+              (p.lastMs / 1000).toFixed(2) + ' s)' : '') +
+            '. Lista w oknie gry jest na ten czas ukryta.</span>';
         } else if (p.message) {
           line = '<span class="' + (p.status === 'done' ? 'mu-pos' : 'mu-mut') + '">' +
             esc(p.message) + '</span>';

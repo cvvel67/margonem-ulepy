@@ -121,7 +121,9 @@ przyciskiem **Załaduj wszystkie strony** w zakładce **Zbieranie**.
 Wtedy dodatek prosi grę o kolejne strony dokładnie tej listy, którą
 masz otwartą — strona po stronie, bez sztucznej przerwy (tempo wyznacza
 kolejka zadań samej gry), i zatrzymuje się przy zmianie filtra,
-zamknięciu okna albo braku odpowiedzi.
+zamknięciu okna albo braku odpowiedzi. Na czas ładowania wiersze listy
+w oknie gry są ukryte (przy tysiącach widocznych wierszy gra z każdą
+stroną zwalniała) i wracają po zakończeniu.
 
 **5. Wykluczenia.** Oferty za walutę premium (SŁ) i oferty wystawione
 wyłącznie na licytację (bez opcji "Kup teraz") są całkowicie pomijane —

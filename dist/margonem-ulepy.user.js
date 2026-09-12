@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.1.2
+// @version      1.1.3
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.1.2' };
+const MU = { version: '1.1.3' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -2114,7 +2114,9 @@ MU.sniffer = (function () {
   const AH_PAGE_FIELD = 9;
   const AH_PAGE_SIZE = 15;
   const PAGER_RESPONSE_TIMEOUT_MS = 6000;
-  const PAGER_MAX_PAGES = 400;
+  /* Bezpiecznik, nie realne ograniczenie: na zywo lista miala 35 778 ofert
+   * (~2400 stron), a stary limit 400 ucinal ja po ~6000. */
+  const PAGER_MAX_PAGES = 5000;
 
   let lastAhTask = null;
   let gameTaskHooked = false;
@@ -2207,15 +2209,32 @@ MU.sniffer = (function () {
         const n = auctionRowCount();
         if (n > before || n < 0 || pagerStopRequested) finish();
       }
-      const host = document.querySelector('.auction-window') || document.body;
-      if (typeof MutationObserver === 'function' && host) {
+      /* Tylko sama tabela i rodzic wierszy, childList BEZ subtree - reaguje
+       * wylacznie na dopisanie wierszy, a nie na co-sekundowe odliczanie
+       * czasu w kazdym z tysiecy wierszy (przy duzych listach to kosztowalo). */
+      const table = document.querySelector('.auction-table');
+      const firstCell = table && table.querySelector('.item-slot-td');
+      const rowParent = firstCell && firstCell.closest('tr') ? firstCell.closest('tr').parentNode : null;
+      if (typeof MutationObserver === 'function' && table) {
         observer = new MutationObserver(check);
-        observer.observe(host, { childList: true, subtree: true });
+        observer.observe(table, { childList: true });
+        if (rowParent && rowParent !== table) observer.observe(rowParent, { childList: true });
       }
       poll = setInterval(check, 250);
       timer = setTimeout(finish, timeoutMs);
       check();
     });
+  }
+
+  /* Na czas ladowania wiersze tabeli aukcji gry sa ukryte (sama klasa CSS,
+   * nic nie jest usuwane - gra i dodatek dalej maja wszystkie wiersze w DOM,
+   * zbieranie czyta je normalnie). Na zywo kazda kolejna strona szla wolniej
+   * (srednio ok. 1,8 s/strone przy ~2700 widocznych wierszach, pierwsze
+   * strony wyraznie szybciej), a ukrytych wierszy przegladarka nie uklada
+   * ani nie rysuje. Po zakonczeniu lista wraca. */
+  function setGameListHidden(hidden) {
+    const w = document.querySelector('.auction-window');
+    if (w) w.classList.toggle('mu-pager-running', !!hidden);
   }
 
   function loadAllPages() {
@@ -2230,12 +2249,16 @@ MU.sniffer = (function () {
     const scope = ahTaskScope(lastAhTask);
     const pages = Math.min(PAGER_MAX_PAGES, Math.ceil(total / AH_PAGE_SIZE));
     let page = ahTaskPage(lastAhTask);
+    let loadedPages = 0, loadedMs = 0;
+    setGameListHidden(true);
     pagerUpdate({ running: true, status: 'running', message: '', page: page, pages: pages,
-      rows: auctionRowCount(), total: total });
+      rows: auctionRowCount(), total: total, lastMs: null, avgMs: null });
 
     function finish(status, message) {
       try { scrapeDom(); } catch (e) {}
-      pagerUpdate({ running: false, status: status, message: message, rows: Math.max(0, auctionRowCount()) });
+      setGameListHidden(false);
+      const avg = loadedPages ? ' Srednio ' + (loadedMs / loadedPages / 1000).toFixed(2) + ' s/strone.' : '';
+      pagerUpdate({ running: false, status: status, message: message + avg, rows: Math.max(0, auctionRowCount()) });
       return pager;
     }
 
@@ -2258,19 +2281,31 @@ MU.sniffer = (function () {
         if (isFinite(totalNow) && totalNow !== pager.total) {
           pagerUpdate({ total: totalNow, pages: Math.min(PAGER_MAX_PAGES, Math.ceil(totalNow / AH_PAGE_SIZE)) });
         }
-        if (rows >= pager.total || page >= pager.pages) return finish('done', 'Zaladowano cala liste.');
+        if (rows >= pager.total) return finish('done', 'Zaladowano cala liste.');
+        if (page >= pager.pages) {
+          /* Wczesniej przy limicie stron komunikat mowil "cala lista" - na
+           * liscie 35 tys. ofert byloby to nieprawda. */
+          return Math.ceil(pager.total / AH_PAGE_SIZE) > PAGER_MAX_PAGES
+            ? finish('stopped', 'Osiagnieto limit ' + PAGER_MAX_PAGES + ' stron - lista moze byc niekompletna.')
+            : finish('done', 'Zaladowano wszystkie strony.');
+        }
 
         const next = ahTaskWithPage(lastAhTask, page + 1);
         if (!next) return finish('error', 'Nieznany format zapytania gry - nic nie wyslano.');
+        const t0 = Date.now();
         window._g(next);
         const after = await waitForMoreRows(rows, PAGER_RESPONSE_TIMEOUT_MS);
+        const ms = Date.now() - t0;
         if (after > rows) {
           misses = 0;
           page++;
+          loadedPages++;
+          loadedMs += ms;
         } else if (++misses >= 2) {
           return finish('error', 'Gra nie dolozyla nowych ofert - zatrzymano.');
         }
-        pagerUpdate({ page: page, rows: Math.max(0, after) });
+        pagerUpdate({ page: page, rows: Math.max(0, after), lastMs: ms,
+          avgMs: loadedPages ? Math.round(loadedMs / loadedPages) : null });
         /* Bez sztucznej przerwy - kolejna strona idzie od razu. Tempo wyznacza
          * kolejka zadan samej gry (_g odklada zadanie, gdy poprzednie jeszcze
          * trwa), a zapytania nigdy nie ida rownolegle. */
@@ -3140,6 +3175,7 @@ table.mu-t tr:hover td{background:rgba(255,255,255,.06)}
  * jedyna czesc danych z akcentem zlota (hierarchia wizualna: reszta
  * tabeli jest neutralnie biala/szara). */
 table.mu-t td.mu-hi{color:#f0d090;font-weight:700}
+.auction-window.mu-pager-running .auction-table tr{display:none}
 /* Pusty przedzial: zamiast myslnika powtorzonego w kazdej komorce (szum
  * wizualny), caly wiersz jest wygaszony, a komorki poza pierwsza (nazwa
  * przedzialu) sa po prostu puste. */
@@ -3923,7 +3959,10 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
         let line = '';
         if (p.running) {
           line = '<span class="mu-mut">Laduje strone <b>' + (p.page + 1) + '</b> z <b>' + p.pages +
-            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert.</span>';
+            '</b> - w oknie gry <b>' + p.rows + '</b> z <b>' + p.total + '</b> ofert' +
+            (p.avgMs ? ', srednio <b>' + (p.avgMs / 1000).toFixed(2) + ' s</b>/strone (ostatnia ' +
+              (p.lastMs / 1000).toFixed(2) + ' s)' : '') +
+            '. Lista w oknie gry jest na ten czas ukryta.</span>';
         } else if (p.message) {
           line = '<span class="' + (p.status === 'done' ? 'mu-pos' : 'mu-mut') + '">' +
             esc(p.message) + '</span>';
