@@ -47,7 +47,7 @@ body{background:#2b2b2b;margin:0;font-family:sans-serif;color:#ccc}
     const lvl = 21 + (i * 7) % 280;
     const price = 100 + (i * 37) % 9000;
     return '<tr><td class="item-slot-td"><div class="item item-id-' + id + '" data-cl="8" data-item-type="t-uni"></div></td>' +
-      '<td class="item-name-td">Zbroja testowa ' + id + '</td><td class="item-level-td">' + lvl + '</td>' +
+      '<td class="item-name-td">Zbroja testowa ' + (i % 40) + '</td><td class="item-level-td">' + lvl + '</td>' +
       '<td class="item-time-td"><span class="time-wrapper">1h 2m</span></td><td class="item-bid-td"></td>' +
       '<td class="item-buy-now-td"><span class="auction-cost-label">' + price + 'k</span></td></tr>';
   }
@@ -78,6 +78,12 @@ body{background:#2b2b2b;margin:0;font-family:sans-serif;color:#ccc}
     const els = document.querySelectorAll('.auction-table .time-wrapper');
     for (let i = 0; i < els.length; i++) els[i].textContent = (i % 2 ? '1h 2m' : '1h 1m');
   }, 1000);
+  /* "Kupno" oferty - gra usuwa wtedy wiersz z listy. */
+  window.__simBuy = function (id) {
+    const d = document.querySelector('.auction-table .item-id-' + id);
+    if (d) d.closest('tr').remove();
+    info();
+  };
   window.__simClose = function () {
     const t = document.querySelector('.auction-table');
     if (t) t.remove();

@@ -826,6 +826,85 @@ MU.sniffer = (function () {
     if (w) w.classList.toggle('mu-pager-running', !!hidden);
   }
 
+  /* --- 5. Zawezenie widoku listy w oknie aukcji (tylko wizualne) ----- *
+   * Klik oferty w Przedmiotach: w oknie aukcji gry zostaja widoczne tylko
+   * wiersze tego samego przedmiotu (ta sama nazwa) w dokladnie tej samej cenie -
+   * np. wszystkie 15 sztuk wystawionych przez jednego gracza. Sama klasa
+   * CSS na wierszach, jak przy ukrywaniu listy podczas ladowania: nic nie
+   * jest wysylane do gry, filtry gry sie nie zmieniaja, lista zostaje w DOM
+   * i "Pokaz wszystko" przywraca ja od razu, bez ponownego ladowania.
+   * Gdy gra doklada/usuwa wiersze (nowa strona, zakup), zawezenie jest
+   * nakladane ponownie (narrowTick). */
+  let narrow = null;   // { name, price, count, table, rows }
+  const narrowListeners = [];
+  function onNarrow(fn) { narrowListeners.push(fn); }
+  function getNarrow() {
+    return narrow ? { name: narrow.name, price: narrow.price, count: narrow.count } : null;
+  }
+  function emitNarrow() {
+    const s = getNarrow();
+    for (const fn of narrowListeners) {
+      try { fn(s); } catch (e) { console.warn('[Ulepy] narrow listener error', e); }
+    }
+  }
+
+  /* Oznacza wiersze pasujace do zawezenia; wynik = liczba pasujacych ofert,
+   * -1 = brak okna aukcji. */
+  function applyNarrow() {
+    const table = document.querySelector('.auction-table');
+    if (!narrow || !table) return -1;
+    const trs = table.rows || table.querySelectorAll('tr');
+    const now = Date.now();
+    let n = 0;
+    for (let i = 0; i < trs.length; i++) {
+      const r = parseAuctionRow(trs[i], now);
+      /* Naglowek i inne wiersze bez przedmiotu zostaja widoczne. */
+      const keep = !r || !!(r.obs && r.obs.name === narrow.name && r.obs.price === narrow.price);
+      trs[i].classList.toggle('mu-keep', keep);
+      if (r && keep) n++;
+    }
+    table.classList.add('mu-narrowed');
+    narrow.table = table;
+    narrow.rows = trs.length;
+    narrow.count = n;
+    return n;
+  }
+
+  function clearNarrow() {
+    if (!narrow) return;
+    if (narrow.table) narrow.table.classList.remove('mu-narrowed');
+    const cur = document.querySelector('.auction-table');
+    if (cur) cur.classList.remove('mu-narrowed');
+    narrow = null;
+    emitNarrow();
+  }
+
+  /* { ok: true, count } albo { ok: false, reason: 'no-window' | 'none' } -
+   * 'none': takiej oferty nie ma teraz w oknie (inna kategoria/filtr, kupiona). */
+  function setNarrow(name, price) {
+    if (narrow && narrow.table) narrow.table.classList.remove('mu-narrowed');
+    narrow = { name: name, price: price, count: 0, table: null, rows: -1 };
+    const n = applyNarrow();
+    if (n > 0) { emitNarrow(); return { ok: true, count: n }; }
+    if (narrow.table) narrow.table.classList.remove('mu-narrowed');
+    narrow = null;
+    emitNarrow();
+    return { ok: false, reason: n < 0 ? 'no-window' : 'none' };
+  }
+
+  /* Co 0,7 s: nakladanie zawezenia na nowe/zmienione wiersze (tylko gdy
+   * tabela albo liczba wierszy sie zmienila), zdjecie po zamknieciu okna. */
+  function narrowTick() {
+    if (!narrow || pager.running) return;
+    const table = document.querySelector('.auction-table');
+    if (!table) { clearNarrow(); return; }
+    const len = (table.rows || table.querySelectorAll('tr')).length;
+    if (table === narrow.table && len === narrow.rows) return;
+    const before = narrow.count;
+    applyNarrow();
+    if (narrow.count !== before) emitNarrow();
+  }
+
   function loadAllPages(opts) {
     if (pager.running) return Promise.resolve(pager);
     const total = auctionRowCount() > 0 && ahFilterFields(lastAhTask) ? auctionTotalCount() : NaN;
@@ -835,6 +914,8 @@ MU.sniffer = (function () {
       return Promise.resolve(pager);
     }
     pagerStopRequested = false;
+    /* Po zaladowaniu ma byc widoczna cala lista - zawezenie z Przedmiotow znika. */
+    clearNarrow();
     const scope = ahTaskScope(lastAhTask);
     const pages = Math.min(PAGER_MAX_PAGES, Math.ceil(total / AH_PAGE_SIZE));
     let page = ahTaskPage(lastAhTask);
@@ -925,15 +1006,18 @@ MU.sniffer = (function () {
      * stronie (scrapeNewRows), a pelny skan robi raz, na koncu. */
     domTimer = setInterval(function () { if (!pager.running) scrapeDom(); }, 8000);
     keepScrolledTimer = setInterval(function () {
-      if (pager.running) return;
+      /* Przy zawezonej liscie dosuwanie do dolu tylko by przeszkadzalo. */
+      if (pager.running || narrow) return;
       try { keepScrolledNearBottom(); } catch (e) {}
     }, 1500);
+    setInterval(function () { try { narrowTick(); } catch (e) {} }, 700);
   }
 
   return {
     install: install, onSnapshot: onSnapshot, diag: diag,
     loadAllPages: loadAllPages, stopLoadAll: stopLoadAll, getPager: getPager, onPager: onPager,
     getResumeInfo: getResumeInfo, onAhTask: onAhTask,
+    setNarrow: setNarrow, clearNarrow: clearNarrow, getNarrow: getNarrow, onNarrow: onNarrow,
     ahTaskPage: ahTaskPage, ahTaskWithPage: ahTaskWithPage, ahTaskScope: ahTaskScope,
     keepScrolledNearBottom: keepScrolledNearBottom,
     startKeepScrolledNearBottom: startKeepScrolledNearBottom,

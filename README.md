@@ -35,7 +35,10 @@ Im niżej, tym lepsza okazja. Panel ma cztery zakładki:
   wybranej w grze kategorii), bez uśredniania, jeden wiersz = jedna
   realna oferta. Koszt za punkt liczony jest z bonusami względem tego,
   co ustawisz w Kalkulatorze, a oferty mieszczące się w budżecie są
-  podświetlone na zielono.
+  podświetlone na zielono. Kliknięcie oferty zawęża listę w oknie aukcji
+  gry do tego przedmiotu w tej samej cenie (np. wszystkie sztuki od
+  jednego sprzedawcy) — tylko widok, nic nie jest wysyłane do gry,
+  a „Pokaż wszystko” przywraca całą listę bez ponownego ładowania.
 - **Kalkulator** — wpisujesz rzadkość, grupę, poziom i obecne ulepszenie
   przedmiotu, który chcesz wbić na +5, oraz budżet (np. „6g”, „500m”).
   Dostajesz liczbę potrzebnych punktów i maksymalną cenę za punkt, przy
@@ -152,6 +155,9 @@ Strzały liczą się jako **Broń** i są zbierane razem z bronią.
 Dodatek nie gra za Ciebie: nigdy nie klika elementów gry, nie licytuje,
 nie kupuje i nie wystawia przedmiotów. W tle wyłącznie **czyta** dane
 widoczne w interfejsie gry (DOM, przechwycone odpowiedzi XHR/fetch).
+Jedyne, co zmienia w oknie aukcji, to widoczność wierszy listy (chowa
+je na czas ładowania stron i po kliknięciu oferty w Przedmiotach) —
+niczego nie usuwa i nic przy tym nie wysyła.
 
 Jedyny wyjątek to przycisk **Załaduj wszystkie strony**. Po jego
 kliknięciu dodatek wysyła przez własną funkcję gry (`_g`) to samo

@@ -193,7 +193,18 @@ table.mu-t tbody tr.mu-ok td{background:var(--mu-green-bg)}
 table.mu-t tbody tr.mu-ok:hover td{background:rgba(130,214,156,.12)}
 table.mu-t tbody tr.mu-ok td:first-child{box-shadow:inset 2px 0 0 var(--mu-green)}
 table.mu-t tbody tr.mu-ok td.mu-hi{color:var(--mu-green)}
+table.mu-t tbody tr.mu-click{cursor:pointer}
+/* Oferty, do ktorych zawezono okno aukcji - zloty pasek. */
+table.mu-t tbody tr.mu-sel td{background:rgba(230,189,106,.10)}
+table.mu-t tbody tr.mu-sel td:first-child{box-shadow:inset 2px 0 0 var(--mu-gold)}
+.mu-narrow-note{background:var(--mu-green-bg);border:1px solid rgba(130,214,156,.3);border-radius:8px;
+  padding:7px 10px;margin:0 0 10px;font-size:12px;line-height:1.5;color:var(--mu-tx)}
+.mu-narrow-note b{color:var(--mu-green)}
 .auction-window.mu-pager-running .auction-table tr{display:none}
+/* Zawezenie listy w oknie aukcji po kliknieciu oferty w Przedmiotach -
+ * tylko widok (patrz MU.sniffer.setNarrow). */
+.auction-table.mu-narrowed tr:not(.mu-keep){display:none}
+.auction-table.mu-narrowed{outline:2px solid rgba(130,214,156,.6);outline-offset:-1px}
 /* Podpowiedz "Max. cena" - zlota karta; informacja (Srednie ceny) - ta sama
  * karta w chlodnym kolorze. Pelna, delikatna ramka zamiast grubego paska. */
 .mu-callout{margin:10px 0 8px;padding:10px 12px;border:1px solid var(--mu-gold-line);border-radius:8px;
@@ -599,6 +610,11 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
   /* Gdy gracz otworzy/zmieni liste w oknie aukcji - odswiez Zbieranie, zeby
    * przycisk "Wznow" pojawil sie od razu po powrocie do tej samej listy. */
   MU.sniffer.onAhTask(renderPagerDebounced);
+  /* Zawezenie okna aukcji (klik w Przedmiotach) - liczba pasujacych ofert
+   * zmienia sie np. po zakupie, pasek w Przedmiotach ma to pokazywac. */
+  if (MU.sniffer.onNarrow) MU.sniffer.onNarrow(function () {
+    if (panel && panel.classList.contains('mu-open') && activeTab === 'przedmioty') render(true);
+  });
 
   /* bodyOnly=true: wywolane w tle (nowe dane), NIE przez akcje uzytkownika -
    * pomija przebudowe paska filtrow (renderBar), zeby nie wycinac w polu
@@ -868,6 +884,12 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
   /* Wlasny, niezalezny stan sortowania od zakladki Tabela (COLS/sortKey/
    * sortDir powyzej) - inne kolumny, inny domyslny sort. */
   let sortKeyItems = 'costPerPoint', sortDirItems = 1;
+  /* Komunikat po nieudanym zawezeniu okna aukcji (patrz renderItems). */
+  let narrowMsg = '';
+  function plOfert(n) {
+    const d = n % 10, dd = n % 100;
+    return n === 1 ? 'oferta' : (d >= 2 && d <= 4 && !(dd >= 12 && dd <= 14) ? 'oferty' : 'ofert');
+  }
 
   const ITEM_COLS = [
     { k: 'name', t: 'Przedmiot', f: function (r) { return U.escapeHtml(r.name); } },
@@ -924,7 +946,19 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
         ? 'Na zielono oferty mieszczące się w budżecie z Kalkulatora – koszt/pkt do <b>' + calcNum(maxPP) +
           '</b> (bonusy już wliczone).'
         : 'Wpisz poziom i budżet w <b>Kalkulatorze</b>, a oferty mieszczące się w budżecie podświetlą się na zielono.') +
+      ' Kliknij ofertę, a w oknie aukcji zostaną tylko takie same w tej samej cenie.' +
       ' Lista to wszystkie oferty widziane od otwarcia gry, nie historia – średnie są w zakładce <b>Średnie ceny</b>.</p>';
+
+    /* Zawezenie okna aukcji (klik oferty) - co widac w grze i jak wrocic. */
+    const nw = MU.sniffer.getNarrow ? MU.sniffer.getNarrow() : null;
+    const isSel = function (r) { return !!nw && r.name === nw.name && r.price === nw.price; };
+    if (nw) {
+      html += '<div class="mu-narrow-note">W oknie aukcji widać tylko: <b>' + U.escapeHtml(nw.name) + '</b> za <b>' +
+        U.gold(nw.price) + '</b> – ' + (nw.count ? nw.count + ' ' + plOfert(nw.count) : 'nie ma już tych ofert') +
+        ' <button type="button" class="mu-link" id="mu-narrow-clear">Pokaż wszystko</button></div>';
+    } else if (narrowMsg) {
+      html += '<div class="mu-warn">' + narrowMsg + '</div>';
+    }
 
     if (!rows.length) {
       html += '<div class="mu-empty">Brak jeszcze zaobserwowanych ofert. Otwórz dom aukcyjny ' +
@@ -945,7 +979,11 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
     }).join('') + '</tr></thead><tbody>';
 
     for (const r of rows.slice(0, SHOWN_MAX)) {
-      html += '<tr' + (fits(r) ? ' class="mu-ok"' : '') + '>' + ITEM_COLS.map(function (c) {
+      const rc = ['mu-click'];
+      if (fits(r)) rc.push('mu-ok');
+      if (isSel(r)) rc.push('mu-sel');
+      html += '<tr class="' + rc.join(' ') + '" data-aid="' + U.escapeHtml(String(r.aid)) +
+        '" title="Pokaż w oknie aukcji tylko ten przedmiot w tej samej cenie">' + ITEM_COLS.map(function (c) {
         const cls = c.cls ? c.cls(r) : '';
         return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + c.f(r) + '</td>';
       }).join('') + '</tr>';
@@ -960,6 +998,33 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
         render();
       });
     });
+
+    /* Klik oferty -> zawezenie listy w oknie aukcji do tego przedmiotu w tej
+     * samej cenie; ponowny klik tej samej oferty je zdejmuje. */
+    const byAid = new Map(rows.map(function (r) { return [String(r.aid), r]; }));
+    body.querySelector('table.mu-t tbody').addEventListener('click', function (e) {
+      const tr = e.target.closest('tr[data-aid]');
+      const r = tr && byAid.get(tr.getAttribute('data-aid'));
+      if (!r) return;
+      const cur = MU.sniffer.getNarrow();
+      if (cur && cur.name === r.name && cur.price === r.price) {
+        narrowMsg = '';
+        MU.sniffer.clearNarrow();
+        render(true);
+        return;
+      }
+      const res = MU.sniffer.setNarrow(r.name, r.price);
+      narrowMsg = res.ok ? '' : (res.reason === 'no-window'
+        ? 'Otwórz dom aukcyjny w grze – zawężana jest lista, którą gra pokazuje w oknie aukcji.'
+        : 'Tej oferty nie ma teraz w oknie aukcji (inna kategoria lub filtr, albo ktoś ją już kupił). ' +
+          'Nazwa skopiowana do schowka.');
+      if (!res.ok && res.reason === 'none') {
+        try { navigator.clipboard.writeText(r.name).catch(function () {}); } catch (err) {}
+      }
+      render(true);
+    });
+    const clr = body.querySelector('#mu-narrow-clear');
+    if (clr) clr.onclick = function () { narrowMsg = ''; MU.sniffer.clearNarrow(); render(true); };
   }
 
   /* --- zakladka: zbieranie -------------------------------------------- */
