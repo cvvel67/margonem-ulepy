@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.2.1
+// @version      1.2.2
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.2.1' };
+const MU = { version: '1.2.2' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -2385,6 +2385,54 @@ MU.sniffer = (function () {
     if (narrow.count !== before) emitNarrow();
   }
 
+  /* --- 6. Kupione oferty znikaja z Przedmiotow ----------------------- *
+   * Po zakupie gra usuwa wiersz z listy w oknie aukcji (potwierdzone przez
+   * uzytkownika), a lista sesji (Przedmioty) trzymala oferte az do
+   * przeladowania gry - kupiony przedmiot dalej swiecil sie na zielono.
+   * Porownujemy zbior aukcji w tabeli z poprzednim: gdy przy TEJ SAMEJ
+   * liscie (ta sama tabela i filtr) zniknie kilka wierszy, te oferty
+   * wypadaja z sesji. Wiele naraz = odswiezenie/zmiana listy przez gre, nie
+   * zakup - wtedy tylko nowy punkt odniesienia. Filtr bierzemy wylacznie z
+   * zapytan o liste: samo kupno tez jest zadaniem "ah&", ale bez filtra, i
+   * nie moze wygladac jak zmiana listy. */
+  const GONE_MAX_AT_ONCE = 5;
+  let goneBase = null;        // { table, scope, rows, aids }
+  let lastListScope = null;
+  const sessionListeners = [];
+  function onSessionChange(fn) { sessionListeners.push(fn); }
+
+  function tableAids(table) {
+    const set = new Set();
+    const items = table.querySelectorAll('.item-slot-td .item');
+    for (let i = 0; i < items.length; i++) {
+      const m = /item-id-(\d+)/.exec(items[i].className);
+      if (m) set.add(m[1]);
+    }
+    return set;
+  }
+
+  function goneTick() {
+    const s = lastAhTask ? ahTaskScope(lastAhTask) : null;
+    if (s) lastListScope = s;
+    const table = document.querySelector('.auction-table');
+    if (pager.running || !table) { goneBase = null; return; }
+    const rows = (table.rows || table.querySelectorAll('tr')).length;
+    const same = !!goneBase && goneBase.table === table && goneBase.scope === lastListScope;
+    if (same && goneBase.rows === rows) return;
+    const aids = tableAids(table);
+    if (same) {
+      const gone = [];
+      goneBase.aids.forEach(function (a) { if (!aids.has(a)) gone.push(a); });
+      if (gone.length && gone.length <= GONE_MAX_AT_ONCE) {
+        const removed = gone.filter(function (a) { return sessionItems.delete(a); });
+        if (removed.length) {
+          for (const fn of sessionListeners) { try { fn(removed); } catch (e) {} }
+        }
+      }
+    }
+    goneBase = { table: table, scope: lastListScope, rows: rows, aids: aids };
+  }
+
   function loadAllPages(opts) {
     if (pager.running) return Promise.resolve(pager);
     const total = auctionRowCount() > 0 && ahFilterFields(lastAhTask) ? auctionTotalCount() : NaN;
@@ -2490,7 +2538,10 @@ MU.sniffer = (function () {
       if (pager.running || narrow) return;
       try { keepScrolledNearBottom(); } catch (e) {}
     }, 1500);
-    setInterval(function () { try { narrowTick(); } catch (e) {} }, 700);
+    setInterval(function () {
+      try { goneTick(); } catch (e) {}
+      try { narrowTick(); } catch (e) {}
+    }, 700);
   }
 
   return {
@@ -2498,6 +2549,7 @@ MU.sniffer = (function () {
     loadAllPages: loadAllPages, stopLoadAll: stopLoadAll, getPager: getPager, onPager: onPager,
     getResumeInfo: getResumeInfo, onAhTask: onAhTask,
     setNarrow: setNarrow, clearNarrow: clearNarrow, getNarrow: getNarrow, onNarrow: onNarrow,
+    onSessionChange: onSessionChange,
     ahTaskPage: ahTaskPage, ahTaskWithPage: ahTaskWithPage, ahTaskScope: ahTaskScope,
     keepScrolledNearBottom: keepScrolledNearBottom,
     startKeepScrolledNearBottom: startKeepScrolledNearBottom,
@@ -3818,6 +3870,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
   MU.sniffer.onAhTask(renderPagerDebounced);
   /* Zawezenie okna aukcji (klik w Przedmiotach) - liczba pasujacych ofert
    * zmienia sie np. po zakupie, pasek w Przedmiotach ma to pokazywac. */
+  /* Kupione (znikniete z listy w oknie aukcji) oferty wypadaja z Przedmiotow. */
+  if (MU.sniffer.onSessionChange) MU.sniffer.onSessionChange(renderLiveDebounced);
   if (MU.sniffer.onNarrow) MU.sniffer.onNarrow(function () {
     if (panel && panel.classList.contains('mu-open') && activeTab === 'przedmioty') render(true);
   });

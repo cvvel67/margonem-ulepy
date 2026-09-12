@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.2.1
+// @version      1.2.2
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -26,4 +26,4 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.2.1' };
+const MU = { version: '1.2.2' };

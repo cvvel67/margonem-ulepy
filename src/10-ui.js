@@ -612,6 +612,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
   MU.sniffer.onAhTask(renderPagerDebounced);
   /* Zawezenie okna aukcji (klik w Przedmiotach) - liczba pasujacych ofert
    * zmienia sie np. po zakupie, pasek w Przedmiotach ma to pokazywac. */
+  /* Kupione (znikniete z listy w oknie aukcji) oferty wypadaja z Przedmiotow. */
+  if (MU.sniffer.onSessionChange) MU.sniffer.onSessionChange(renderLiveDebounced);
   if (MU.sniffer.onNarrow) MU.sniffer.onNarrow(function () {
     if (panel && panel.classList.contains('mu-open') && activeTab === 'przedmioty') render(true);
   });

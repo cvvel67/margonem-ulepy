@@ -33,7 +33,8 @@ Im niżej, tym lepsza okazja. Panel ma cztery zakładki:
 - **Przedmioty** — widok bieżący i **sesyjny**: każda oferta, jaką
   dodatek zaobserwował od załadowania strony (nie tylko z aktualnie
   wybranej w grze kategorii), bez uśredniania, jeden wiersz = jedna
-  realna oferta. Koszt za punkt liczony jest z bonusami względem tego,
+  realna oferta (kupione, czyli zniknięte z listy w oknie aukcji, znikają
+  też stąd). Koszt za punkt liczony jest z bonusami względem tego,
   co ustawisz w Kalkulatorze, a oferty mieszczące się w budżecie są
   podświetlone na zielono. Kliknięcie oferty zawęża listę w oknie aukcji
   gry do tego przedmiotu w tej samej cenie (np. wszystkie sztuki od
