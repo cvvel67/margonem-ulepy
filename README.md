@@ -119,8 +119,9 @@ doładujesz ręcznie (przewijając listę w grze — dodatek trzyma ją
 podsuniętą blisko dołu, więc wystarczy drobny ruch kółkiem) albo
 przyciskiem **Załaduj wszystkie strony** w zakładce **Zbieranie**.
 Wtedy dodatek prosi grę o kolejne strony dokładnie tej listy, którą
-masz otwartą — strona po stronie, z przerwą ~1 s, i zatrzymuje się
-przy zmianie filtra, zamknięciu okna albo braku odpowiedzi.
+masz otwartą — strona po stronie, bez sztucznej przerwy (tempo wyznacza
+kolejka zadań samej gry), i zatrzymuje się przy zmianie filtra,
+zamknięciu okna albo braku odpowiedzi.
 
 **5. Wykluczenia.** Oferty za walutę premium (SŁ) i oferty wystawione
 wyłącznie na licytację (bez opcji "Kup teraz") są całkowicie pomijane —

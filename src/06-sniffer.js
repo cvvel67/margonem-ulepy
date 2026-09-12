@@ -629,13 +629,13 @@ MU.sniffer = (function () {
    * nie istnieja w tym kodzie) i nie odpala sie sam - tylko po wyraznym
    * kliknieciu przycisku w zakladce Zbieranie.
    *
-   * Ograniczenia, zeby ruch wygladal jak szybkie reczne przewijanie, a nie
-   * jak zalew zapytan: strony po kolei (kolejna dopiero, gdy poprzednia
-   * dolozyla wiersze), przerwa miedzy stronami, twardy limit stron, stop
-   * przy zmianie filtra/zamknieciu okna/braku odpowiedzi. */
+   * Tempo: maksymalne, na wyrazne zyczenie uzytkownika - bez sztucznej
+   * przerwy (wczesniej 0,9 s). Ograniczenia, ktore zostaja: strony po kolei
+   * (kolejna dopiero, gdy poprzednia dolozyla wiersze - nigdy rownolegle),
+   * tempo kolejki zadan samej gry, twardy limit stron, stop przy zmianie
+   * filtra/zamknieciu okna/braku odpowiedzi. */
   const AH_PAGE_FIELD = 9;
   const AH_PAGE_SIZE = 15;
-  const PAGER_DELAY_MS = 900;
   const PAGER_RESPONSE_TIMEOUT_MS = 6000;
   const PAGER_MAX_PAGES = 400;
 
@@ -711,16 +711,33 @@ MU.sniffer = (function () {
   function getPager() { return pager; }
   function stopLoadAll() { pagerStopRequested = true; }
 
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-
+  /* Czeka, az gra dolozy nowe wiersze do tabeli. MutationObserver reaguje
+   * natychmiast po wyrenderowaniu odpowiedzi (bez opoznienia pollingu i bez
+   * zadnych dodatkowych zapytan do serwera); rzadki polling zostaje jako
+   * zapas, gdyby gra przebudowala cale okno i obserwowany wezel zniknal. */
   function waitForMoreRows(before, timeoutMs) {
-    const until = Date.now() + timeoutMs;
     return new Promise(function (resolve) {
-      (function poll() {
+      let done = false, observer = null, poll = null, timer = null;
+      function finish() {
+        if (done) return;
+        done = true;
+        if (observer) observer.disconnect();
+        clearInterval(poll);
+        clearTimeout(timer);
+        resolve(auctionRowCount());
+      }
+      function check() {
         const n = auctionRowCount();
-        if (n > before || n < 0 || Date.now() >= until || pagerStopRequested) return resolve(n);
-        setTimeout(poll, 200);
-      })();
+        if (n > before || n < 0 || pagerStopRequested) finish();
+      }
+      const host = document.querySelector('.auction-window') || document.body;
+      if (typeof MutationObserver === 'function' && host) {
+        observer = new MutationObserver(check);
+        observer.observe(host, { childList: true, subtree: true });
+      }
+      poll = setInterval(check, 250);
+      timer = setTimeout(finish, timeoutMs);
+      check();
     });
   }
 
@@ -777,7 +794,9 @@ MU.sniffer = (function () {
           return finish('error', 'Gra nie dolozyla nowych ofert - zatrzymano.');
         }
         pagerUpdate({ page: page, rows: Math.max(0, after) });
-        await sleep(PAGER_DELAY_MS);
+        /* Bez sztucznej przerwy - kolejna strona idzie od razu. Tempo wyznacza
+         * kolejka zadan samej gry (_g odklada zadanie, gdy poprzednie jeszcze
+         * trwa), a zapytania nigdy nie ida rownolegle. */
       }
     })().catch(function (e) { return finish('error', 'Blad: ' + (e && e.message)); });
   }

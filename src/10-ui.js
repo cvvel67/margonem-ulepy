@@ -970,8 +970,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid #000;border-radius:4px;padding:8p
             esc(p.message) + '</span>';
         }
         return '<p class="mu-note">Prosi gre o kolejne strony dokladnie tej listy, ktora masz ' +
-          'otwarta w oknie aukcji - tak samo jak przy przewijaniu, strona po stronie, z przerwa ' +
-          'ok. 1 s. Nic nie kupuje i nie licytuje. ' + line + '</p>' +
+          'otwarta w oknie aukcji - tak samo jak przy przewijaniu, strona po stronie, tak ' +
+          'szybko, jak pozwala gra. Nic nie kupuje i nie licytuje. ' + line + '</p>' +
           (p.running
             ? '<button class="mu-btn" id="mu-load-stop">Zatrzymaj</button>'
             : '<button class="mu-btn" id="mu-load-all">Zaladuj wszystkie strony</button>');
