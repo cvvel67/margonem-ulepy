@@ -252,6 +252,20 @@ table.mu-t tbody tr.mu-sel td:first-child{box-shadow:inset 2px 0 0 var(--mu-gold
 .mu-tile{box-sizing:border-box;min-width:0;padding:8px 11px;background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:8px}
 .mu-tile-lbl{display:block;font-size:10px;color:var(--mu-tx3);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .mu-tile-val{display:block;font-size:20px;font-weight:700;color:var(--mu-gold);line-height:1.25;font-variant-numeric:tabular-nums}
+/* Zakladka Motywy: karta motywu = probka kolorow + nazwa + opis. */
+.mu-themes{display:grid;gap:10px}
+.mu-theme-card{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;padding:12px 14px;
+  cursor:pointer;background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:10px;color:var(--mu-tx);font:inherit;
+  transition:border-color .15s ease,background .15s ease}
+.mu-theme-card:hover{border-color:var(--mu-line2);background:var(--mu-s2)}
+.mu-theme-card.mu-active{border-color:var(--mu-gold);box-shadow:inset 0 0 0 1px var(--mu-gold)}
+.mu-theme-card:focus-visible{outline:2px solid var(--mu-gold-d);outline-offset:2px}
+.mu-theme-sw{display:flex;gap:3px;flex:none}
+.mu-theme-sw i{display:block;width:12px;height:36px;border-radius:3px;border:1px solid rgba(255,255,255,.1)}
+.mu-theme-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mu-theme-txt b{font-size:14px;color:var(--mu-tx)}
+.mu-theme-txt span{font-size:11px;color:var(--mu-tx2);line-height:1.4}
+.mu-theme-check{margin-left:auto;flex:none;font-size:11px;font-weight:700;color:var(--mu-gold)}
 .mu-status{font-size:11px;margin:10px 0 0;line-height:1.5;color:var(--mu-tx2)}
 /* Pusty przedzial: caly wiersz wygaszony, komorki poza pierwsza puste. */
 tr.mu-empty-row td{color:#3d3d3d}
@@ -301,6 +315,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
     { id: 'kalkulator', label: 'Kalkulator' },
     { id: 'zbieranie', label: 'Zbieranie' },
     { id: 'tabela', label: 'Średnie ceny' },
+    /* Wybor wygladu jako osobna zakladka (uwaga uzytkownika: nie w Zbieraniu). */
+    { id: 'motywy', label: 'Motywy' },
   ];
 
   /* Docelowy rodzic dla naszego okna: ten sam kontener, w ktorym gra
@@ -1117,12 +1133,6 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
           (d.lastDom.total === null ? '' : ' z <b>' + d.lastDom.total + '</b>') +
           ' pasujących aukcji (' + new Date(d.lastDom.at).toLocaleTimeString() + '). ' + status + '</p>';
       })() : '') +
-      /* Wyglad: wybor motywu (uwaga uzytkownika - trzy motywy). */
-      (themeList().length ? '<h4 class="mu-sec" style="margin-top:14px">Wygląd</h4>' +
-        '<div class="mu-seg-row" id="mu-theme-pick" style="margin-bottom:12px">' + themeList().map(function (t) {
-          return '<button type="button" class="mu-seg' + (t.id === loadTheme() ? ' mu-active' : '') +
-            '" data-v="' + t.id + '">' + t.label + '</button>';
-        }).join('') + '</div>' : '') +
       /* Dane (eksport/import/czyszczenie) tez zwiniete - uzywane rzadko
        * (uwaga uzytkownika). */
       '<details class="mu-target" id="mu-data-details"' + (collectDataOpen ? ' open' : '') + '>' +
@@ -1138,9 +1148,6 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
 
     const dataDetails = body.querySelector('#mu-data-details');
     dataDetails.addEventListener('toggle', function () { collectDataOpen = dataDetails.open; });
-    body.querySelectorAll('#mu-theme-pick .mu-seg').forEach(function (b) {
-      b.addEventListener('click', function () { setTheme(b.getAttribute('data-v')); renderCollect(body); });
-    });
 
     const loadAll = body.querySelector('#mu-load-all');
     if (loadAll) loadAll.onclick = function () { MU.sniffer.loadAllPages(); };
@@ -1413,6 +1420,27 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
     update();
   }
 
+  /* --- zakladka: motywy ---------------------------------------------- *
+   * Osobna zakladka na wybor wygladu (uwaga uzytkownika: nie w Zbieraniu,
+   * tylko jako kafelek na gorze). Karta = nazwa (czcionka motywu), opis,
+   * probka kolorow; klik zmienia motyw od razu i zapamietuje. */
+  function renderThemes(body) {
+    const cur = loadTheme();
+    body.innerHTML = '<p class="mu-subtitle">Wybierz wygląd panelu – zmiana działa od razu i zostaje zapamiętana.</p>' +
+      '<div class="mu-themes">' + themeList().map(function (t) {
+        return '<button type="button" class="mu-theme-card' + (t.id === cur ? ' mu-active' : '') + '" data-v="' + t.id + '">' +
+          '<span class="mu-theme-sw">' + (t.swatch || []).map(function (c) {
+            return '<i style="background:' + c + '"></i>'; }).join('') + '</span>' +
+          '<span class="mu-theme-txt"><b' + (t.font ? ' style="font-family:' + t.font + '"' : '') + '>' + t.label + '</b>' +
+          '<span>' + (t.desc || '') + '</span></span>' +
+          (t.id === cur ? '<span class="mu-theme-check">&#10003; Wybrany</span>' : '') +
+          '</button>';
+      }).join('') + '</div>';
+    body.querySelectorAll('.mu-theme-card').forEach(function (b) {
+      b.addEventListener('click', function () { setTheme(b.getAttribute('data-v')); renderThemes(body); });
+    });
+  }
+
   function render(bodyOnly) {
     if (!panel) return;
     if (!bodyOnly) renderBar();
@@ -1425,6 +1453,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
      * wyrzucalo kursor z pola, gubiac wpisywane cyfry). Rysujemy go tylko,
      * gdy go jeszcze nie ma (wejscie na zakladke). */
     else if (activeTab === 'kalkulator') { if (!body.querySelector('#mu-calc-out')) renderCalc(body); }
+    else if (activeTab === 'motywy') renderThemes(body);
     else renderCollect(body);
   }
 

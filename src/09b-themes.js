@@ -8,10 +8,15 @@
  * Wygenerowane z lokalnego podgladu motywow - reguly edytuj tutaj.
  * ------------------------------------------------------------------ */
 MU.themes = {
+  /* desc/swatch/font - karta w zakladce Motywy (probka kolorow, nazwa
+   * czcionka motywu). */
   LIST: [
-    { id: 'nocny', label: 'Nocny błękit' },
-    { id: 'arkana', label: 'Arkana' },
-    { id: 'otchlan', label: 'Otchłań' },
+    { id: 'nocny', label: 'Nocny błękit', desc: 'Granat z błękitną poświatą – nowoczesny i czytelny.',
+      swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'], font: "'Segoe UI',system-ui,sans-serif" },
+    { id: 'arkana', label: 'Arkana', desc: 'Złote ramki, turkusowe runy, ozdobne wersaliki.',
+      swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'], font: "'Cinzel',Georgia,serif" },
+    { id: 'otchlan', label: 'Otchłań', desc: 'Kamień, żelazo i krwawy żar.',
+      swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'], font: "'Metamorphous',Georgia,serif" },
   ],
   IMPORT: "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Metamorphous&display=swap');\n",
   CSS: `
@@ -281,5 +286,15 @@ MU.themes = {
 .mu-window[data-mu-theme="otchlan"] .mu-calc-line b{color:#e6cf8f}
 .mu-window[data-mu-theme="otchlan"] .mu-empty b,.mu-window[data-mu-theme="otchlan"] .mu-subtitle b{color:#c7b377}
 .mu-window[data-mu-theme="arkana"] table.mu-t th,.mu-window[data-mu-theme="otchlan"] table.mu-t th{letter-spacing:.03em;padding:6px 4px}
+.mu-window[data-mu-theme] .cards-header-wrapper .card{white-space:nowrap;min-width:0}
+.mu-window[data-mu-theme="arkana"] .cards-header-wrapper .card{letter-spacing:.05em;font-size:10px;padding:11px 2px 10px}
+.mu-window[data-mu-theme="otchlan"] .cards-header-wrapper .card{font-size:11px;letter-spacing:.02em;padding:8px 2px 7px}
+.mu-window[data-mu-theme="nocny"] .cards-header-wrapper .card{font-size:11.5px;padding:7px 2px}
+.mu-window[data-mu-theme="arkana"] .mu-theme-card{border-radius:0;background:linear-gradient(180deg,#0f1d33,#010a13);border-color:#3c3c41}
+.mu-window[data-mu-theme="arkana"] .mu-theme-card.mu-active{border-color:#c8aa6e;box-shadow:inset 0 0 0 1px #c8aa6e,0 0 12px rgba(200,170,110,.25)}
+.mu-window[data-mu-theme="otchlan"] .mu-theme-card{border-radius:2px;background:var(--mu-noise),linear-gradient(#1b1512,#0e0b09);
+  border-color:#000;box-shadow:inset 0 0 0 1px #3a3129}
+.mu-window[data-mu-theme="otchlan"] .mu-theme-card.mu-active{box-shadow:inset 0 0 0 1px #c7b377,0 0 12px rgba(200,30,20,.3)}
+.mu-window[data-mu-theme="nocny"] .mu-theme-card{border-radius:14px;background:linear-gradient(180deg,#16223a,#111a28)}
 `,
 };

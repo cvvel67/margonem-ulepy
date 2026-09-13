@@ -28,7 +28,8 @@ sensowna miara opłacalności to:
 koszt_za_punkt = cena_z_aukcji / efektywne_punkty_z_poświęcenia
 ```
 
-Im niżej, tym lepsza okazja. Panel ma cztery zakładki:
+Im niżej, tym lepsza okazja. Panel ma pięć zakładek (piąta, **Motywy**, to
+wybór wyglądu):
 
 - **Przedmioty** — widok bieżący i **sesyjny**: każda oferta, jaką
   dodatek zaobserwował od załadowania strony (nie tylko z aktualnie
@@ -59,7 +60,7 @@ Im niżej, tym lepsza okazja. Panel ma cztery zakładki:
   w każdym przedziale poziomów. To podgląd rynku — do kupowania służy
   zakładka Przedmioty.
 
-Wygląd panelu zmienisz w zakładce **Zbieranie → Wygląd**: do wyboru
+Wygląd panelu zmienisz w zakładce **Motywy**: do wyboru
 **Nocny błękit** (domyślny), **Arkana** i **Otchłań**. Czcionki motywów
 (Cinzel, Metamorphous) pobierane są z Google Fonts; gdy się nie wczytają,
 motyw używa zapasowych czcionek szeryfowych.

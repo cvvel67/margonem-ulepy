@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.3.0
+// @version      1.3.1
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.3.0' };
+const MU = { version: '1.3.1' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -3266,10 +3266,15 @@ MU.aggregate = (function () {
  * Wygenerowane z lokalnego podgladu motywow - reguly edytuj tutaj.
  * ------------------------------------------------------------------ */
 MU.themes = {
+  /* desc/swatch/font - karta w zakladce Motywy (probka kolorow, nazwa
+   * czcionka motywu). */
   LIST: [
-    { id: 'nocny', label: 'Nocny błękit' },
-    { id: 'arkana', label: 'Arkana' },
-    { id: 'otchlan', label: 'Otchłań' },
+    { id: 'nocny', label: 'Nocny błękit', desc: 'Granat z błękitną poświatą – nowoczesny i czytelny.',
+      swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'], font: "'Segoe UI',system-ui,sans-serif" },
+    { id: 'arkana', label: 'Arkana', desc: 'Złote ramki, turkusowe runy, ozdobne wersaliki.',
+      swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'], font: "'Cinzel',Georgia,serif" },
+    { id: 'otchlan', label: 'Otchłań', desc: 'Kamień, żelazo i krwawy żar.',
+      swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'], font: "'Metamorphous',Georgia,serif" },
   ],
   IMPORT: "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Metamorphous&display=swap');\n",
   CSS: `
@@ -3539,6 +3544,16 @@ MU.themes = {
 .mu-window[data-mu-theme="otchlan"] .mu-calc-line b{color:#e6cf8f}
 .mu-window[data-mu-theme="otchlan"] .mu-empty b,.mu-window[data-mu-theme="otchlan"] .mu-subtitle b{color:#c7b377}
 .mu-window[data-mu-theme="arkana"] table.mu-t th,.mu-window[data-mu-theme="otchlan"] table.mu-t th{letter-spacing:.03em;padding:6px 4px}
+.mu-window[data-mu-theme] .cards-header-wrapper .card{white-space:nowrap;min-width:0}
+.mu-window[data-mu-theme="arkana"] .cards-header-wrapper .card{letter-spacing:.05em;font-size:10px;padding:11px 2px 10px}
+.mu-window[data-mu-theme="otchlan"] .cards-header-wrapper .card{font-size:11px;letter-spacing:.02em;padding:8px 2px 7px}
+.mu-window[data-mu-theme="nocny"] .cards-header-wrapper .card{font-size:11.5px;padding:7px 2px}
+.mu-window[data-mu-theme="arkana"] .mu-theme-card{border-radius:0;background:linear-gradient(180deg,#0f1d33,#010a13);border-color:#3c3c41}
+.mu-window[data-mu-theme="arkana"] .mu-theme-card.mu-active{border-color:#c8aa6e;box-shadow:inset 0 0 0 1px #c8aa6e,0 0 12px rgba(200,170,110,.25)}
+.mu-window[data-mu-theme="otchlan"] .mu-theme-card{border-radius:2px;background:var(--mu-noise),linear-gradient(#1b1512,#0e0b09);
+  border-color:#000;box-shadow:inset 0 0 0 1px #3a3129}
+.mu-window[data-mu-theme="otchlan"] .mu-theme-card.mu-active{box-shadow:inset 0 0 0 1px #c7b377,0 0 12px rgba(200,30,20,.3)}
+.mu-window[data-mu-theme="nocny"] .mu-theme-card{border-radius:14px;background:linear-gradient(180deg,#16223a,#111a28)}
 `,
 };
 
@@ -3797,6 +3812,20 @@ table.mu-t tbody tr.mu-sel td:first-child{box-shadow:inset 2px 0 0 var(--mu-gold
 .mu-tile{box-sizing:border-box;min-width:0;padding:8px 11px;background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:8px}
 .mu-tile-lbl{display:block;font-size:10px;color:var(--mu-tx3);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .mu-tile-val{display:block;font-size:20px;font-weight:700;color:var(--mu-gold);line-height:1.25;font-variant-numeric:tabular-nums}
+/* Zakladka Motywy: karta motywu = probka kolorow + nazwa + opis. */
+.mu-themes{display:grid;gap:10px}
+.mu-theme-card{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;padding:12px 14px;
+  cursor:pointer;background:var(--mu-s1);border:1px solid var(--mu-line);border-radius:10px;color:var(--mu-tx);font:inherit;
+  transition:border-color .15s ease,background .15s ease}
+.mu-theme-card:hover{border-color:var(--mu-line2);background:var(--mu-s2)}
+.mu-theme-card.mu-active{border-color:var(--mu-gold);box-shadow:inset 0 0 0 1px var(--mu-gold)}
+.mu-theme-card:focus-visible{outline:2px solid var(--mu-gold-d);outline-offset:2px}
+.mu-theme-sw{display:flex;gap:3px;flex:none}
+.mu-theme-sw i{display:block;width:12px;height:36px;border-radius:3px;border:1px solid rgba(255,255,255,.1)}
+.mu-theme-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mu-theme-txt b{font-size:14px;color:var(--mu-tx)}
+.mu-theme-txt span{font-size:11px;color:var(--mu-tx2);line-height:1.4}
+.mu-theme-check{margin-left:auto;flex:none;font-size:11px;font-weight:700;color:var(--mu-gold)}
 .mu-status{font-size:11px;margin:10px 0 0;line-height:1.5;color:var(--mu-tx2)}
 /* Pusty przedzial: caly wiersz wygaszony, komorki poza pierwsza puste. */
 tr.mu-empty-row td{color:#3d3d3d}
@@ -3846,6 +3875,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
     { id: 'kalkulator', label: 'Kalkulator' },
     { id: 'zbieranie', label: 'Zbieranie' },
     { id: 'tabela', label: 'Średnie ceny' },
+    /* Wybor wygladu jako osobna zakladka (uwaga uzytkownika: nie w Zbieraniu). */
+    { id: 'motywy', label: 'Motywy' },
   ];
 
   /* Docelowy rodzic dla naszego okna: ten sam kontener, w ktorym gra
@@ -4662,12 +4693,6 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
           (d.lastDom.total === null ? '' : ' z <b>' + d.lastDom.total + '</b>') +
           ' pasujących aukcji (' + new Date(d.lastDom.at).toLocaleTimeString() + '). ' + status + '</p>';
       })() : '') +
-      /* Wyglad: wybor motywu (uwaga uzytkownika - trzy motywy). */
-      (themeList().length ? '<h4 class="mu-sec" style="margin-top:14px">Wygląd</h4>' +
-        '<div class="mu-seg-row" id="mu-theme-pick" style="margin-bottom:12px">' + themeList().map(function (t) {
-          return '<button type="button" class="mu-seg' + (t.id === loadTheme() ? ' mu-active' : '') +
-            '" data-v="' + t.id + '">' + t.label + '</button>';
-        }).join('') + '</div>' : '') +
       /* Dane (eksport/import/czyszczenie) tez zwiniete - uzywane rzadko
        * (uwaga uzytkownika). */
       '<details class="mu-target" id="mu-data-details"' + (collectDataOpen ? ' open' : '') + '>' +
@@ -4683,9 +4708,6 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
 
     const dataDetails = body.querySelector('#mu-data-details');
     dataDetails.addEventListener('toggle', function () { collectDataOpen = dataDetails.open; });
-    body.querySelectorAll('#mu-theme-pick .mu-seg').forEach(function (b) {
-      b.addEventListener('click', function () { setTheme(b.getAttribute('data-v')); renderCollect(body); });
-    });
 
     const loadAll = body.querySelector('#mu-load-all');
     if (loadAll) loadAll.onclick = function () { MU.sniffer.loadAllPages(); };
@@ -4958,6 +4980,27 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
     update();
   }
 
+  /* --- zakladka: motywy ---------------------------------------------- *
+   * Osobna zakladka na wybor wygladu (uwaga uzytkownika: nie w Zbieraniu,
+   * tylko jako kafelek na gorze). Karta = nazwa (czcionka motywu), opis,
+   * probka kolorow; klik zmienia motyw od razu i zapamietuje. */
+  function renderThemes(body) {
+    const cur = loadTheme();
+    body.innerHTML = '<p class="mu-subtitle">Wybierz wygląd panelu – zmiana działa od razu i zostaje zapamiętana.</p>' +
+      '<div class="mu-themes">' + themeList().map(function (t) {
+        return '<button type="button" class="mu-theme-card' + (t.id === cur ? ' mu-active' : '') + '" data-v="' + t.id + '">' +
+          '<span class="mu-theme-sw">' + (t.swatch || []).map(function (c) {
+            return '<i style="background:' + c + '"></i>'; }).join('') + '</span>' +
+          '<span class="mu-theme-txt"><b' + (t.font ? ' style="font-family:' + t.font + '"' : '') + '>' + t.label + '</b>' +
+          '<span>' + (t.desc || '') + '</span></span>' +
+          (t.id === cur ? '<span class="mu-theme-check">&#10003; Wybrany</span>' : '') +
+          '</button>';
+      }).join('') + '</div>';
+    body.querySelectorAll('.mu-theme-card').forEach(function (b) {
+      b.addEventListener('click', function () { setTheme(b.getAttribute('data-v')); renderThemes(body); });
+    });
+  }
+
   function render(bodyOnly) {
     if (!panel) return;
     if (!bodyOnly) renderBar();
@@ -4970,6 +5013,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
      * wyrzucalo kursor z pola, gubiac wpisywane cyfry). Rysujemy go tylko,
      * gdy go jeszcze nie ma (wejscie na zakladke). */
     else if (activeTab === 'kalkulator') { if (!body.querySelector('#mu-calc-out')) renderCalc(body); }
+    else if (activeTab === 'motywy') renderThemes(body);
     else renderCollect(body);
   }
 
