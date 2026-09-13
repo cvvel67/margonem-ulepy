@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.3.1
+// @version      1.3.2
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.3.1' };
+const MU = { version: '1.3.2' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -3266,15 +3266,14 @@ MU.aggregate = (function () {
  * Wygenerowane z lokalnego podgladu motywow - reguly edytuj tutaj.
  * ------------------------------------------------------------------ */
 MU.themes = {
-  /* desc/swatch/font - karta w zakladce Motywy (probka kolorow, nazwa
-   * czcionka motywu). */
+  /* desc/swatch - karta w zakladce Motywy (opis i probka kolorow). */
   LIST: [
     { id: 'nocny', label: 'Nocny błękit', desc: 'Granat z błękitną poświatą – nowoczesny i czytelny.',
-      swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'], font: "'Segoe UI',system-ui,sans-serif" },
+      swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'] },
     { id: 'arkana', label: 'Arkana', desc: 'Złote ramki, turkusowe runy, ozdobne wersaliki.',
-      swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'], font: "'Cinzel',Georgia,serif" },
+      swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'] },
     { id: 'otchlan', label: 'Otchłań', desc: 'Kamień, żelazo i krwawy żar.',
-      swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'], font: "'Metamorphous',Georgia,serif" },
+      swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'] },
   ],
   IMPORT: "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Metamorphous&display=swap');\n",
   CSS: `
@@ -4982,7 +4981,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
 
   /* --- zakladka: motywy ---------------------------------------------- *
    * Osobna zakladka na wybor wygladu (uwaga uzytkownika: nie w Zbieraniu,
-   * tylko jako kafelek na gorze). Karta = nazwa (czcionka motywu), opis,
+   * tylko jako kafelek na gorze). Karta = nazwa (czcionka panelu - uwaga
+   * uzytkownika, nie czcionka motywu), opis,
    * probka kolorow; klik zmienia motyw od razu i zapamietuje. */
   function renderThemes(body) {
     const cur = loadTheme();
@@ -4991,7 +4991,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
         return '<button type="button" class="mu-theme-card' + (t.id === cur ? ' mu-active' : '') + '" data-v="' + t.id + '">' +
           '<span class="mu-theme-sw">' + (t.swatch || []).map(function (c) {
             return '<i style="background:' + c + '"></i>'; }).join('') + '</span>' +
-          '<span class="mu-theme-txt"><b' + (t.font ? ' style="font-family:' + t.font + '"' : '') + '>' + t.label + '</b>' +
+          '<span class="mu-theme-txt"><b>' + t.label + '</b>' +
           '<span>' + (t.desc || '') + '</span></span>' +
           (t.id === cur ? '<span class="mu-theme-check">&#10003; Wybrany</span>' : '') +
           '</button>';

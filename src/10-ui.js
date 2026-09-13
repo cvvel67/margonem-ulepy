@@ -1422,7 +1422,8 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
 
   /* --- zakladka: motywy ---------------------------------------------- *
    * Osobna zakladka na wybor wygladu (uwaga uzytkownika: nie w Zbieraniu,
-   * tylko jako kafelek na gorze). Karta = nazwa (czcionka motywu), opis,
+   * tylko jako kafelek na gorze). Karta = nazwa (czcionka panelu - uwaga
+   * uzytkownika, nie czcionka motywu), opis,
    * probka kolorow; klik zmienia motyw od razu i zapamietuje. */
   function renderThemes(body) {
     const cur = loadTheme();
@@ -1431,7 +1432,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
         return '<button type="button" class="mu-theme-card' + (t.id === cur ? ' mu-active' : '') + '" data-v="' + t.id + '">' +
           '<span class="mu-theme-sw">' + (t.swatch || []).map(function (c) {
             return '<i style="background:' + c + '"></i>'; }).join('') + '</span>' +
-          '<span class="mu-theme-txt"><b' + (t.font ? ' style="font-family:' + t.font + '"' : '') + '>' + t.label + '</b>' +
+          '<span class="mu-theme-txt"><b>' + t.label + '</b>' +
           '<span>' + (t.desc || '') + '</span></span>' +
           (t.id === cur ? '<span class="mu-theme-check">&#10003; Wybrany</span>' : '') +
           '</button>';

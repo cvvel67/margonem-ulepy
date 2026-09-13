@@ -8,15 +8,14 @@
  * Wygenerowane z lokalnego podgladu motywow - reguly edytuj tutaj.
  * ------------------------------------------------------------------ */
 MU.themes = {
-  /* desc/swatch/font - karta w zakladce Motywy (probka kolorow, nazwa
-   * czcionka motywu). */
+  /* desc/swatch - karta w zakladce Motywy (opis i probka kolorow). */
   LIST: [
     { id: 'nocny', label: 'Nocny błękit', desc: 'Granat z błękitną poświatą – nowoczesny i czytelny.',
-      swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'], font: "'Segoe UI',system-ui,sans-serif" },
+      swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'] },
     { id: 'arkana', label: 'Arkana', desc: 'Złote ramki, turkusowe runy, ozdobne wersaliki.',
-      swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'], font: "'Cinzel',Georgia,serif" },
+      swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'] },
     { id: 'otchlan', label: 'Otchłań', desc: 'Kamień, żelazo i krwawy żar.',
-      swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'], font: "'Metamorphous',Georgia,serif" },
+      swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'] },
   ],
   IMPORT: "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Metamorphous&display=swap');\n",
   CSS: `
