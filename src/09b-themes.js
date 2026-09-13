@@ -8,13 +8,13 @@
  * Wygenerowane z lokalnego podgladu motywow - reguly edytuj tutaj.
  * ------------------------------------------------------------------ */
 MU.themes = {
-  /* desc/swatch - karta w zakladce Motywy (opis i probka kolorow). */
+  /* swatch - probka kolorow na karcie w zakladce Motywy. */
   LIST: [
-    { id: 'nocny', label: 'Nocny błękit', desc: 'Granat z błękitną poświatą – nowoczesny i czytelny.',
+    { id: 'nocny', label: 'Nocny błękit',
       swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'] },
-    { id: 'arkana', label: 'Arkana', desc: 'Złote ramki, turkusowe runy, ozdobne wersaliki.',
+    { id: 'arkana', label: 'Arkana',
       swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'] },
-    { id: 'otchlan', label: 'Otchłań', desc: 'Kamień, żelazo i krwawy żar.',
+    { id: 'otchlan', label: 'Otchłań',
       swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'] },
   ],
   IMPORT: "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Metamorphous&display=swap');\n",

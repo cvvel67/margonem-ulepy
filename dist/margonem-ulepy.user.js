@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         ulepa kalkulator
 // @namespace    https://github.com/cvvel67/margonem-ulepy
-// @version      1.3.2
+// @version      1.3.3
 // @author       Terry A. Davis
 // @match        *://*.margonem.pl/*
 // @match        *://*.margonem.com/*
@@ -27,7 +27,7 @@
  */
 ;(function () {
 'use strict';
-const MU = { version: '1.3.2' };
+const MU = { version: '1.3.3' };
 
 /* ===== 01-config.js ===== */
 /* ------------------------------------------------------------------ *
@@ -3266,13 +3266,13 @@ MU.aggregate = (function () {
  * Wygenerowane z lokalnego podgladu motywow - reguly edytuj tutaj.
  * ------------------------------------------------------------------ */
 MU.themes = {
-  /* desc/swatch - karta w zakladce Motywy (opis i probka kolorow). */
+  /* swatch - probka kolorow na karcie w zakladce Motywy. */
   LIST: [
-    { id: 'nocny', label: 'Nocny błękit', desc: 'Granat z błękitną poświatą – nowoczesny i czytelny.',
+    { id: 'nocny', label: 'Nocny błękit',
       swatch: ['#0c111a', '#172030', '#5cb8ff', '#4fe3b0'] },
-    { id: 'arkana', label: 'Arkana', desc: 'Złote ramki, turkusowe runy, ozdobne wersaliki.',
+    { id: 'arkana', label: 'Arkana',
       swatch: ['#010a13', '#785a28', '#c8aa6e', '#0ac8b9'] },
-    { id: 'otchlan', label: 'Otchłań', desc: 'Kamień, żelazo i krwawy żar.',
+    { id: 'otchlan', label: 'Otchłań',
       swatch: ['#0b0908', '#3a3129', '#c7b377', '#a3221a'] },
   ],
   IMPORT: "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Metamorphous&display=swap');\n",
@@ -3823,7 +3823,6 @@ table.mu-t tbody tr.mu-sel td:first-child{box-shadow:inset 2px 0 0 var(--mu-gold
 .mu-theme-sw i{display:block;width:12px;height:36px;border-radius:3px;border:1px solid rgba(255,255,255,.1)}
 .mu-theme-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .mu-theme-txt b{font-size:14px;color:var(--mu-tx)}
-.mu-theme-txt span{font-size:11px;color:var(--mu-tx2);line-height:1.4}
 .mu-theme-check{margin-left:auto;flex:none;font-size:11px;font-weight:700;color:var(--mu-gold)}
 .mu-status{font-size:11px;margin:10px 0 0;line-height:1.5;color:var(--mu-tx2)}
 /* Pusty przedzial: caly wiersz wygaszony, komorki poza pierwsza puste. */
@@ -4981,9 +4980,9 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
 
   /* --- zakladka: motywy ---------------------------------------------- *
    * Osobna zakladka na wybor wygladu (uwaga uzytkownika: nie w Zbieraniu,
-   * tylko jako kafelek na gorze). Karta = nazwa (czcionka panelu - uwaga
-   * uzytkownika, nie czcionka motywu), opis,
-   * probka kolorow; klik zmienia motyw od razu i zapamietuje. */
+   * tylko jako kafelek na gorze). Karta = probka kolorow i nazwa (czcionka
+   * panelu), bez opisow (uwagi uzytkownika); klik zmienia motyw od razu
+   * i zapamietuje. */
   function renderThemes(body) {
     const cur = loadTheme();
     body.innerHTML = '<p class="mu-subtitle">Wybierz wygląd panelu – zmiana działa od razu i zostaje zapamiętana.</p>' +
@@ -4992,7 +4991,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
           '<span class="mu-theme-sw">' + (t.swatch || []).map(function (c) {
             return '<i style="background:' + c + '"></i>'; }).join('') + '</span>' +
           '<span class="mu-theme-txt"><b>' + t.label + '</b>' +
-          '<span>' + (t.desc || '') + '</span></span>' +
+          '</span>' +
           (t.id === cur ? '<span class="mu-theme-check">&#10003; Wybrany</span>' : '') +
           '</button>';
       }).join('') + '</div>';
