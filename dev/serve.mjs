@@ -17,7 +17,8 @@ const FILES = {
   '/sim.html': join(here, 'sim.html'),
   '/margonem-ulepy.user.js': join(here, '..', 'dist', 'margonem-ulepy.user.js'),
 };
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8' };
 
 createServer(async (req, res) => {
   const path = FILES[new URL(req.url, 'http://localhost').pathname];

@@ -59,6 +59,11 @@ Im niżej, tym lepsza okazja. Panel ma cztery zakładki:
   w każdym przedziale poziomów. To podgląd rynku — do kupowania służy
   zakładka Przedmioty.
 
+Wygląd panelu zmienisz w zakładce **Zbieranie → Wygląd**: do wyboru
+**Nocny błękit** (domyślny), **Arkana** i **Otchłań**. Czcionki motywów
+(Cinzel, Metamorphous) pobierane są z Google Fonts; gdy się nie wczytają,
+motyw używa zapasowych czcionek szeryfowych.
+
 **Cel ulepszania** (rzadkość, grupa i poziom przedmiotu, który faktycznie
 ulepszasz) ustawiasz w jednym miejscu — w Kalkulatorze; zapamiętuje się
 między sesjami. Przedmioty i Średnie ceny doliczają względem niego bonusy
@@ -182,6 +187,7 @@ src/            moduły źródłowe (sklejane w kolejności alfabetycznej)
   07-lifecycle.js   sprzedaż vs wygaśnięcie aukcji, paginacja/pokrycie
   08-upgrade.js     dokładny mechanizm Rzemiosła: punkty, koszty, bonusy
   09-aggregate.js   agregacja + ranking koszt-za-punkt
+  09b-themes.js     motywy wyglądu panelu (Nocny błękit, Arkana, Otchłań)
   10-ui.js          panel wynikowy (natywny styl okien gry)
   11-main.js        spięcie całości
 build.mjs       sklejenie src/*.js -> dist/margonem-ulepy.user.js (czytelne)

@@ -26,6 +26,22 @@ MU.ui = (function () {
   const GROUP_LABELS = { bronie: 'Bronie', pancerz: 'Pancerze', bizuteria: 'Biżuteria' };
   const GROUP_ORDER = ['bronie', 'pancerz', 'bizuteria'];
 
+  /* Motyw wygladu (MU.themes: Nocny blekit / Arkana / Otchlan) - zapamietany
+   * w localStorage, domyslnie pierwszy z listy (Nocny blekit, wybor
+   * uzytkownika). Przypiety do okna panelu, nie do calej strony gry. */
+  const THEME_KEY = 'MU_THEME_v1';
+  function themeList() { return MU.themes ? MU.themes.LIST : []; }
+  function loadTheme() {
+    let t = '';
+    try { t = localStorage.getItem(THEME_KEY) || ''; } catch (e) {}
+    const list = themeList();
+    return list.some(function (x) { return x.id === t; }) ? t : (list[0] ? list[0].id : '');
+  }
+  function setTheme(id) {
+    try { localStorage.setItem(THEME_KEY, id); } catch (e) {}
+    if (panel) panel.setAttribute('data-mu-theme', id);
+  }
+
   /* Cel ulepszania (rzadkosc/grupa/poziom) nie jest juz tutaj - bierzemy go
    * z Kalkulatora (patrz currentTarget i `calc`), jedno miejsce zamiast dwoch. */
   const state = {
@@ -434,7 +450,9 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
   function mount() {
     if (root) return;
     const style = el('style');
-    style.textContent = CSS;
+    /* @import czcionek motywow musi byc na samym poczatku arkusza, reguly
+     * motywow po bazowym CSS (patrz MU.themes). */
+    style.textContent = (MU.themes ? MU.themes.IMPORT : '') + CSS + (MU.themes ? MU.themes.CSS : '');
     document.head.appendChild(style);
 
     const icon = el('button', {
@@ -463,6 +481,7 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
      * i wyglad zakladek pochodza wprost z JUZ zaladowanego arkusza stylow
      * gry, bez recznego kopiowania kolorow/grafik. */
     panel = el('div', { class: 'c-window border-window mu-window' });
+    panel.setAttribute('data-mu-theme', loadTheme());
     /* Domyslna pozycja (pierwsze otwarcie / brak zapisanej pozycji): pod
      * ikona-wlacznikiem, po prawej stronie ekranu - tak, zeby od razu stac
      * OBOK okna aukcji, a nie je zaslaniac. Zawsze liczona jako jawny
@@ -1098,6 +1117,12 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
           (d.lastDom.total === null ? '' : ' z <b>' + d.lastDom.total + '</b>') +
           ' pasujących aukcji (' + new Date(d.lastDom.at).toLocaleTimeString() + '). ' + status + '</p>';
       })() : '') +
+      /* Wyglad: wybor motywu (uwaga uzytkownika - trzy motywy). */
+      (themeList().length ? '<h4 class="mu-sec" style="margin-top:14px">Wygląd</h4>' +
+        '<div class="mu-seg-row" id="mu-theme-pick" style="margin-bottom:12px">' + themeList().map(function (t) {
+          return '<button type="button" class="mu-seg' + (t.id === loadTheme() ? ' mu-active' : '') +
+            '" data-v="' + t.id + '">' + t.label + '</button>';
+        }).join('') + '</div>' : '') +
       /* Dane (eksport/import/czyszczenie) tez zwiniete - uzywane rzadko
        * (uwaga uzytkownika). */
       '<details class="mu-target" id="mu-data-details"' + (collectDataOpen ? ' open' : '') + '>' +
@@ -1113,6 +1138,9 @@ pre.mu-raw{background:#0d0d0d;border:1px solid var(--mu-line);border-radius:8px;
 
     const dataDetails = body.querySelector('#mu-data-details');
     dataDetails.addEventListener('toggle', function () { collectDataOpen = dataDetails.open; });
+    body.querySelectorAll('#mu-theme-pick .mu-seg').forEach(function (b) {
+      b.addEventListener('click', function () { setTheme(b.getAttribute('data-v')); renderCollect(body); });
+    });
 
     const loadAll = body.querySelector('#mu-load-all');
     if (loadAll) loadAll.onclick = function () { MU.sniffer.loadAllPages(); };
